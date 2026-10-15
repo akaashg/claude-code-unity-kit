@@ -18,6 +18,8 @@ BATCH=0
 if [ "$1" = "--batch" ]; then BATCH=1; shift; fi
 PROJECT=${1:-${CLAUDE_PROJECT_DIR:-$PWD}}
 PROJECT=$(printf '%s' "$PROJECT" | sed 's#\\#/#g; s#/$##')
+# Git Bash: /e/Game -> E:/Game, the form Unity writes in Editor.log.
+command -v cygpath >/dev/null 2>&1 && PROJECT=$(cygpath -m "$PROJECT")
 
 if [ ! -f "$PROJECT/ProjectSettings/ProjectVersion.txt" ]; then
   echo "unity-kit: $PROJECT is not a Unity project root (no ProjectSettings/ProjectVersion.txt)."

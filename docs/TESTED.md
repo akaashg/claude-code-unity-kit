@@ -31,8 +31,9 @@ Only what was actually run is listed. "Not verified" means exactly that.
 | Stop hook in a real session | Works | Ran after each headless turn: 75 s on the first batch compile, 33 s on the second. Compiled clean. It first reported `Health.cs` as missing its `.meta`, because it checked `.meta` files before batch mode imported the script. Now it compiles first; re-checked on the sandbox with a new script: Unity wrote the `.meta`, no message, 34 s |
 | Batch-mode side effect | Observed twice | After a reset of the sandbox, the first hook-driven batch run added `com.unity.toolchain.win-x86_64-linux-x86_64` to `Packages/manifest.json` both times. Manual batch runs before that did not. Cause not identified |
 | `compile-check.sh` Unity-Skills route | Not verified | Needs a running Unity-Skills server |
-| `compile-check.sh` Unity CLI route | Not verified | Needs the Pipeline package and a connected Editor; command names come from the Unity CLI docs |
-| `compile-check.sh` Editor.log route with the Editor open | Not verified | |
-| Lock-file detection with the Editor open | Not verified | |
-| macOS | Not verified | Hook tests are set up to run on macOS in CI |
+| `compile-check.sh` Editor.log route with the Editor open | Works | Sandbox open in the Editor with no errors: "compiles clean via Editor.log" (exit 0, about 14 s). After touching `Health.cs`: "STALE ... Focus the Unity Editor" (exit 3). Found and fixed a bug: called with a Git Bash path (`/e/...`), it wrongly said the log belonged to another Editor; paths are now converted to `E:/...` first |
+| Lock-file detection with the Editor open | Works | With the Editor open, `Temp/UnityLockfile` was held and the script treated the project as open |
+| `compile-check.sh` Unity CLI route | Not verified | `unity status` found no Editor: the sandbox doesn't have the Pipeline package, so the route was skipped as designed |
+| macOS | Hook scripts only | `tests/hooks.test.sh` and frontmatter checks pass on `macos-latest` in GitHub Actions. Not run against a real Unity install on macOS |
+| CI | Works | First run on GitHub Actions: lint, `claude plugin validate --strict` (2.1.286 from npm), and hook tests on Ubuntu, macOS and Windows all passed |
 | Windows without Git Bash | Not supported | |
