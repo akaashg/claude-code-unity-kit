@@ -2,7 +2,6 @@
 
 ## Core (`unity-kit`)
 
-- Verify the Unity-Skills and Unity CLI compile routes against a running Editor (see [TESTED.md](TESTED.md)).
 - Run the kit on macOS against a real Unity install.
 - Support Windows machines without Git Bash (PowerShell versions of the hook scripts).
 - Skip the Stop-hook compile when `compile-fix` just compiled clean in the same turn.

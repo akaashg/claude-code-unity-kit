@@ -4,7 +4,7 @@
 #
 # Routes, first one that works wins:
 #   1. Unity-Skills REST server (localhost:8090-8100), read-only debug_check_compilation
-#   2. Unity CLI: recompile a connected Editor, then read Editor.log
+#   2. Unity CLI (com.unity.pipeline): recompile a connected Editor, even unfocused, and read recompile_status
 #   3. Editor.log of an Editor that has the project open
 #   4. Batch mode (only with --batch, and only when the Editor does not have the project open)
 #
@@ -75,6 +75,15 @@ report_from_log() {
   cat "$TMP/diag"
 }
 
+# Print the compiler error strings found in JSON file $1 as plain lines, deduplicated.
+# Unity-Skills and the Unity CLI both return them as "File.cs(l,c): error CSxxxx: ..." strings.
+# Sets ERRORS to the error count.
+report_from_json() {
+  grep -o '"[^"]*: error CS[0-9]*:[^"]*"' "$1" | sed 's/^"//; s/"$//; s#\\\\#\\#g' | sort -u > "$TMP/diag"
+  ERRORS=$(grep -c ': error CS' "$TMP/diag")
+  cat "$TMP/diag"
+}
+
 finish() { # $1 = route name
   if [ "$ERRORS" -gt 0 ]; then
     echo "unity-kit: $ERRORS compile error(s) via $1."
@@ -111,7 +120,9 @@ if command -v curl >/dev/null 2>&1; then
       exit 3
     fi
     if printf '%s' "$body" | grep -q '"succeeded": *false'; then
-      printf '%s\n' "$body" | cut -c1-4000
+      printf '%s' "$body" > "$TMP/us.json"
+      report_from_json "$TMP/us.json"
+      [ "$ERRORS" -gt 0 ] || printf '%s\n' "$body" | cut -c1-4000
       echo "unity-kit: compile errors via Unity-Skills (port $port)."
       exit 1
     fi
@@ -125,17 +136,27 @@ LOG=$(editor_log)
 # ---- 2. Unity CLI (live Editor with the Pipeline package) ---------------------
 if editor_open && command -v unity >/dev/null 2>&1 &&
    unity status --json --no-banner 2>/dev/null | grep -q "$NAME"; then
-  if unity command recompile --project-path "$PROJECT" --caller plugin --skill unity-kit --no-banner >/dev/null 2>&1; then
+  ucmd() { unity command "$@" --project-path "$PROJECT" --caller plugin --skill unity-kit --format json --no-banner 2>/dev/null; }
+  # recompile works while the Editor is unfocused; it sets the status to "compiling" before it
+  # returns, so a "completed" read afterwards belongs to this compile.
+  if ucmd recompile | grep -q '"success": *true'; then
     i=0
-    while [ $i -lt 40 ]; do
-      unity command recompile_status --project-path "$PROJECT" --caller plugin --skill unity-kit --no-banner 2>/dev/null |
-        grep -qi 'completed' && break
-      sleep 3; i=$((i + 1))
+    while [ $i -lt 60 ]; do
+      ucmd recompile_status > "$TMP/rs.json"
+      grep -Eq '"status": *"(completed|up_to_date)"' "$TMP/rs.json" && break
+      sleep 2; i=$((i + 1))
     done
-    if [ -f "$LOG" ]; then
-      report_from_log "$LOG"
-      finish "Unity CLI recompile + Editor.log"
+    if grep -Eq '"status": *"(completed|up_to_date)"' "$TMP/rs.json"; then
+      report_from_json "$TMP/rs.json"
+      if [ "$ERRORS" -eq 0 ] && grep -q '"compilationFailed": *true' "$TMP/rs.json"; then
+        cut -c1-4000 "$TMP/rs.json"
+        echo "unity-kit: Unity CLI reports a failed compile but no error lines. Not checked."
+        exit 3
+      fi
+      finish "Unity CLI recompile"
     fi
+    echo "unity-kit: Unity CLI recompile did not finish within 2 minutes. Not checked."
+    exit 3
   fi
 fi
 

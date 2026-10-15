@@ -46,11 +46,11 @@ Why each rule exists: [docs/SOURCES.md](docs/SOURCES.md). What was tested: [docs
 Unity can't open a project in batch mode while the Editor has it open, so the check picks the first route that works:
 
 1. **[Unity-Skills](https://github.com/Besty0728/Unity-Skills)** server, if running: reads the last compile result, and reports **stale** if scripts changed after it.
-2. **Unity CLI** with a connected Editor: triggers a recompile, then reads `Editor.log`.
+2. **Unity CLI** with a connected Editor (needs Unity's `com.unity.pipeline` package): triggers a recompile, which works while Unity is in the background, and reads the result.
 3. **`Editor.log`** of the Editor that has the project open, with the same staleness check.
 4. **Batch mode**, when the Editor is closed. Off by default for the end-of-turn hook (`batch_compile` option); `compile-fix` always allows it.
 
-**Limitation:** with the Editor open and no Unity-Skills or Unity CLI connection, Unity only recompiles when the Editor window gets focus. The check then reports **stale** instead of guessing.
+**Limitation:** Unity only recompiles when the Editor window gets focus, unless something forces it. With the Editor open, only the Unity CLI route forces a recompile; the Unity-Skills and `Editor.log` routes report **stale** instead of guessing when scripts changed after the last compile.
 
 ## Works alongside
 
