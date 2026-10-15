@@ -11,6 +11,7 @@ A [Claude Code](https://code.claude.com) plugin for Unity 6 projects. It stops t
 |---|---|
 | Claude edits or invents `.meta` files and GUIDs break | Edits to `.meta` files are blocked |
 | An asset moved in the shell leaves its `.meta` behind, and references go missing | The turn can't end while an orphaned `.meta` exists |
+| An asset that only a scene or prefab uses (by GUID) gets deleted as "unused", or Claude writes a GUID by hand | The turn can't end while a reference broke since the last commit |
 | Claude says "done" while the Console is red | The turn can't end while the project has compile errors |
 | Static fields keep their values between Play sessions when domain reload is off | `CLAUDE.md` records the domain reload state and requires a reset; `unity-reviewer` checks it in reviews |
 | Code written for a different Unity version | The project's Unity version is in `CLAUDE.md` and checked in review |
@@ -33,13 +34,23 @@ Then, in your Unity project, run `/unity-kit:init` once.
 |---|---|---|
 | Skill | `/unity-kit:init` | Writes a `CLAUDE.md` with the project's Unity version, render pipeline, domain reload state and asmdefs |
 | Skill | `compile-fix` | Compile, fix, recompile until clean (max 5 rounds) |
-| Skill | `precommit` | Zero errors, no new warnings, every asset has its `.meta`, tests pass |
+| Skill | `precommit` | Zero errors, no new warnings, every asset has its `.meta`, no broken references, tests pass |
 | Hook | `guard-paths` | Blocks writes to `.meta` files, `Library/` and `Temp/` |
-| Hook | `stop-checks` | At end of turn: `.meta` pairing, and a compile check when scripts changed |
+| Hook | `stop-checks` | At end of turn: `.meta` pairing, broken asset references, and a compile check when scripts changed |
 | Agent | `unity-reviewer` | Static reset, `.meta`/GUID safety, Unity version APIs, project style. Picks up review requests for Unity C# |
 | Agent | `perf-reviewer` | Per-frame GC allocations, SRP Batcher/instancing breakers, Update/physics cost |
 
 Why each rule exists: [docs/SOURCES.md](docs/SOURCES.md). What was tested: [docs/TESTED.md](docs/TESTED.md).
+
+## How the reference check works
+
+`ref-check.sh` reads every GUID that a scene, prefab, material or other text asset references, and every `GUID:` in an asmdef, and looks for a `.meta` with that GUID in `Assets/`, `Packages/`, local `file:` packages and `Library/PackageCache`. GUIDs of Unity's built-in resources are skipped.
+
+It blocks only on references that broke since the last commit: the GUID was in a `.meta` at `HEAD` (the asset was deleted, or moved without its `.meta`), or a changed file references a GUID that no asset or package has and that the file didn't reference at `HEAD`. Broken references already committed are listed by `precommit` but don't block, so an older project with Missing references doesn't stop every turn. An unknown GUID in an asmdef doesn't block either: Asset Store asmdefs often reference optional assemblies that aren't installed. Without git, or without `Library/PackageCache` (a clone never opened in Unity), it reports what it couldn't resolve and doesn't block.
+
+In a git repo it reads files with `git grep`, which is several times faster than `find` on Windows: about 5 s on a project with 3,000 scenes, prefabs and materials and 80 packages. See [docs/TESTED.md](docs/TESTED.md).
+
+**Not checked:** binary-serialized assets (Asset Serialization other than Force Text), and GUIDs in UXML, USS and Shader Graph files.
 
 ## How the compile check works
 

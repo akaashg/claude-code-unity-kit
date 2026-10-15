@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Broken asset references block the end of a turn.** New `ref-check.sh` finds GUIDs referenced from scenes, prefabs, materials and other text assets, and from asmdefs, that no `.meta` has. It blocks when the reference broke since the last commit: the asset was deleted, or moved without its `.meta`, or a GUID was written by hand. References already broken in the last commit, and unknown GUIDs in asmdefs, are reported by `precommit` and don't block. Runs in the Stop hook and as a fifth `precommit` check. Tested read-only on three real projects: no false positives, 2.6-4.6 s.
+- New eval case `deleted-asset-blocked`.
+
 ## 0.1.2 (2026-10-15)
 
 - **No second compile at the end of a turn.** When `compile-fix` or `precommit` just compiled clean and no script changed since, the Stop hook skips its compile (16.5 s to 0.9 s in testing). A result with errors is never skipped.

@@ -105,6 +105,70 @@ printf '{"stop_hook_active":false}' | FAKE_UNITY_ERROR=1 CLAUDE_PROJECT_DIR="$P"
 check "stop: errors left by compile-fix still block" 2 "$?"
 check "stop: errors are compiled again, not skipped" "$((before + 1))" "$(calls)"
 
+# Asset references: a git repo with a scene that references a project material, a package
+# material, a package asmdef, a local package outside the project and a built-in resource.
+unset UNITY_EDITOR_PATH
+R="$T/Ref Game"
+mkdir -p "$R/ProjectSettings" "$R/Assets/Art" "$R/Assets/Scenes" "$R/Assets/Code" "$R/Packages" \
+  "$R/Library/PackageCache/com.x@1a2b/Runtime" "$T/Shared/com.local"
+cp "$P/ProjectSettings/ProjectVersion.txt" "$R/ProjectSettings/"
+printf '{\n  "dependencies": {\n    "com.local": "file:../../Shared/com.local"\n  }\n}\n' > "$R/Packages/manifest.json"
+meta() { printf 'fileFormatVersion: 2\nguid: %s\n' "$2" > "$1.meta"; }
+echo mat > "$R/Assets/Art/Rock.mat"; meta "$R/Assets/Art/Rock.mat" aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+meta "$R/Library/PackageCache/com.x@1a2b/Runtime/Pkg.mat" bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+meta "$R/Library/PackageCache/com.x@1a2b/Runtime/X.asmdef" cccccccccccccccccccccccccccccccc
+meta "$T/Shared/com.local/Local.mat" 11111111111111111111111111111111
+ref() { printf '  - {fileID: 2100000, guid: %s, type: 2}\n' "$@"; }
+{ printf '%%YAML 1.1\n'; ref aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
+    11111111111111111111111111111111 0000000000000000f000000000000000; } > "$R/Assets/Scenes/Main.unity"
+printf '{\n  "name": "Game",\n  "references": ["GUID:cccccccccccccccccccccccccccccccc"]\n}\n' > "$R/Assets/Code/Game.asmdef"
+meta "$R/Assets/Code/Game.asmdef" dddddddddddddddddddddddddddddddd
+printf 'Library/\n' > "$R/.gitignore"
+git() { command git -C "$R" -c core.autocrlf=false -c user.name=t -c user.email=t@example.com "$@" >/dev/null 2>&1; }
+git init -q; git add -A; git commit -q -m fixture
+refs() { # name expected-exit [args]
+  n=$1; e=$2; shift 2
+  sh "$SCRIPTS/ref-check.sh" "$@" "$R" >/dev/null; check "ref-check: $n" "$e" "$?"
+}
+refs "all references resolve" 0
+refs "same result with the package cache" 0 --state "$T/refstate"
+refs "cached package GUIDs" 0 --state "$T/refstate"
+grep -qx bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb "$T"/refstate/*.pkg-guids; check "ref-check: package GUIDs written to the cache" 0 "$?"
+rm "$R/Assets/Art/Rock.mat" "$R/Assets/Art/Rock.mat.meta"
+refs "deleted referenced asset" 1
+sh "$SCRIPTS/ref-check.sh" "$R" | grep -qF "Main.unity line 2: guid aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, was Assets/Art/Rock.mat at HEAD"
+check "ref-check: names the file, line and old asset path" 0 "$?"
+printf '{"stop_hook_active":false}' | CLAUDE_PROJECT_DIR="$R" CLAUDE_PLUGIN_DATA="$T/data" sh "$SCRIPTS/stop-checks.sh" >/dev/null 2>&1
+check "stop: broken reference blocks" 2 "$?"
+git checkout HEAD -- Assets/Art
+refs "restored with its .meta" 0
+mkdir -p "$R/Assets/Docs~" "$R/Assets/.hidden"
+{ printf '%%YAML 1.1\n'; ref 99999999999999999999999999999999; } > "$R/Assets/Docs~/Old.prefab"
+cp "$R/Assets/Docs~/Old.prefab" "$R/Assets/.hidden/Old.prefab"
+refs "folders Unity ignores are skipped" 0
+rm -r "$R/Assets/Docs~" "$R/Assets/.hidden"
+mkdir -p "$R/Assets/Plugins/Lib/.git"   # a nested repository: git grep would skip it, so find is used
+rm "$R/Assets/Art/Rock.mat" "$R/Assets/Art/Rock.mat.meta"
+refs "deleted referenced asset, find fallback" 1
+git checkout HEAD -- Assets/Art; rm -r "$R/Assets/Plugins"
+{ printf '%%YAML 1.1\n'; ref eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee; } > "$R/Assets/Scenes/Level 2.prefab"
+refs "invented GUID in a new file" 1
+git add -A; git commit -q -m broken
+refs "broken reference already committed" 0
+echo "  m_Name: Level 2" >> "$R/Assets/Scenes/Level 2.prefab"
+refs "unrelated edit to a file with an old broken reference" 0
+printf '{\n  "name": "More",\n  "references": ["GUID:ffffffffffffffffffffffffffffffff"]\n}\n' > "$R/Assets/Code/More.asmdef"
+refs "unknown GUID in a new asmdef does not block" 0
+rm "$R/Assets/Code/More.asmdef"
+{ printf '%%YAML 1.1\n'; ref ffffffffffffffffffffffffffffffff; } > "$R/Assets/Scenes/Level 3.prefab"
+mv "$R/Library" "$R/Library.off"
+refs "no PackageCache: can't tell" 2
+mv "$R/Library.off" "$R/Library"; rm "$R/Assets/Scenes/Level 3.prefab"
+rm -rf "$R/.git"
+refs "no git: can't tell" 2
+refs "not a Unity project" 3 "$T"
+unset -f git
+
 echo
 [ "$fails" -eq 0 ] && echo "all hook tests passed" || echo "$fails hook test(s) failed"
 [ "$fails" -eq 0 ]

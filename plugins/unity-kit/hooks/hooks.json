@@ -21,7 +21,7 @@
             "shell": "bash",
             "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/stop-checks.sh\"",
             "timeout": 600,
-            "statusMessage": "unity-kit: checking .meta files and compilation"
+            "statusMessage": "unity-kit: checking .meta files, asset references and compilation"
           }
         ]
       }
