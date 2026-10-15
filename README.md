@@ -50,6 +50,8 @@ Unity can't open a project in batch mode while the Editor has it open, so the ch
 3. **`Editor.log`** of the Editor that has the project open, with the same staleness check.
 4. **Batch mode**, when the Editor is closed. Off by default for the end-of-turn hook (`batch_compile` option); `compile-fix` always allows it.
 
+**Unity 6.0 note:** if the Editor install has Linux Dedicated Server Build Support, any Unity launch, including the batch compile, adds `com.unity.toolchain.win-x86_64-linux-x86_64` to `Packages/manifest.json`. That's Unity bug [UUM-75804](https://issuetracker.unity.com/issues/15311/toolchain-win-linux-x64-package-is-always-automatically-installed-when-the-used-editor-installation-has-the-linux-dedicated-server-support-component) (won't fix in 6.0, fixed in 6.1+), not the kit.
+
 **Limitation:** Unity only recompiles when the Editor window gets focus, unless something forces it. With the Editor open, only the Unity CLI route forces a recompile; the Unity-Skills and `Editor.log` routes report **stale** instead of guessing when scripts changed after the last compile.
 
 ## Works alongside
