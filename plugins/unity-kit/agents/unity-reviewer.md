@@ -1,6 +1,6 @@
 ---
 name: unity-reviewer
-description: Reviews Unity C# changes for static state that survives Enter Play Mode without domain reload, .meta/GUID breakage, APIs that don't match the project's Unity version, and code that ignores the project's existing namespaces, asmdefs and patterns. Use proactively after Claude changes C#, asmdef or asset files in a Unity project, and before a commit.
+description: Use for every review of Unity C# code - whenever the user asks to review, check or look over a Unity script, change or diff (for example before merging or committing) - and proactively after Claude changes C#, asmdef or asset files in a Unity project. Checks static state that survives Enter Play Mode without domain reload, .meta/GUID breakage, APIs that don't match the project's Unity version, and code that ignores the project's existing namespaces, asmdefs and patterns.
 tools: Read, Grep, Glob, Bash
 ---
 
