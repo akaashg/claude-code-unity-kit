@@ -9,3 +9,6 @@ Thumbs.db
 
 # claude plugin eval output
 plugins/*/evals/results/
+
+# Off-record launch notes, kept locally only
+docs/launch/explainer-video-prompt.md
