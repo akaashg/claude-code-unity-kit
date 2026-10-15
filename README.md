@@ -33,6 +33,7 @@ Then, in your Unity project, run `/unity-kit:init` once.
 | Type | Name | What it does |
 |---|---|---|
 | Skill | `/unity-kit:init` | Writes a `CLAUDE.md` with the project's Unity version, render pipeline, domain reload state and asmdefs |
+| Skill | `/unity-kit:build-fix` | Build a player for one target, fix, rebuild until it builds (max 5 rounds). Run it yourself: builds take minutes |
 | Skill | `compile-fix` | Compile, fix, recompile until clean (max 5 rounds) |
 | Skill | `precommit` | Zero errors, no new warnings, every asset has its `.meta`, no broken references, tests pass |
 | Hook | `guard-paths` | Blocks writes to `.meta` files, `Library/` and `Temp/` |
@@ -64,6 +65,18 @@ Unity can't open a project in batch mode while the Editor has it open, so the ch
 **Unity 6.0 note:** if the Editor install has Linux Dedicated Server Build Support, any Unity launch, including the batch compile, adds `com.unity.toolchain.win-x86_64-linux-x86_64` to `Packages/manifest.json`. That's Unity bug [UUM-75804](https://issuetracker.unity.com/issues/15311/toolchain-win-linux-x64-package-is-always-automatically-installed-when-the-used-editor-installation-has-the-linux-dedicated-server-support-component) (won't fix in 6.0, fixed in 6.1+), not the kit. To stop it on your machine: Edit → Project Settings → Toolchain Management, turn off "Install Toolchain package automatically", then remove the package. In testing this held across an Editor restart, but the setting isn't saved in any file under version control.
 
 **Limitation:** Unity only recompiles when the Editor window gets focus, unless something forces it. With the Editor open, only the Unity CLI route forces a recompile; the Unity-Skills and `Editor.log` routes report **stale** instead of guessing when scripts changed after the last compile.
+
+## How the build check works
+
+A project can compile in the Editor and still fail to build: code under `#if !UNITY_EDITOR`, shaders for the target's graphics API, IL2CPP stripping, Gradle. `/unity-kit:build-fix Android` (or `StandaloneWindows64`, `iOS`, `WebGL`, or a build profile name) runs `build-check.sh`, fixes what it reports and builds again. It never runs on its own: not at the end of a turn, not in `precommit`.
+
+1. **Scene list first.** An enabled scene in `ProjectSettings/EditorBuildSettings.asset` whose file is gone, or no enabled scene at all, stops it before Unity starts. A scene loaded by name with `SceneManager.LoadScene("...")` that isn't enabled in the list is a warning.
+2. **Unity CLI** `unity build`, if installed, else **batch mode**. Both need the Editor closed; with the project open in the Editor the result is **not checked**.
+3. **How Unity builds the target.** Desktop targets use Unity's `-buildWindows64Player`-style flags. A Unity 6 build profile uses `-activeBuildProfile` and `-build`. Other targets (Android, iOS, WebGL) have no batch build flag, so they need a profile, the project's own build method (`--method`), or `Assets/Editor/UnityKitBuild.cs`. The skill asks before adding that file, and never writes its `.meta`.
+4. **The log.** Error lines are matched against [build-patterns.txt](plugins/unity-kit/scripts/build-patterns.txt), one regex per line, by class: `CS`, `SHADER`, `IL2CPP`, `GRADLE`, `ANDROID-SDK`, `SCENE`, and generic `MODULE`/`BUILD`. To catch a new failure, add a line there. The full log stays in `Logs/unity-kit-build-<target>.log`; the player goes to `Builds/unity-kit/<target>/` unless you pass `--output`.
+5. **Size.** After a successful build it prints Unity's "Complete build size" and the change since the last build of that target.
+
+Exit codes match the compile check: 0 built, 1 build errors, 3 not checked.
 
 ## Works alongside
 

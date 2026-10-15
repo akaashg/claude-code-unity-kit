@@ -1,0 +1,34 @@
+# unity-kit build failure patterns, read by build-check.sh. Add new ones here.
+# One pattern per line: CLASS CONTEXT REGEX
+#   CLASS    tag printed on the error line, e.g. "error SHADER: ...". The build-fix skill has a fix per class.
+#   CONTEXT  how many following non-empty log lines to join onto the match (Gradle prints the cause below its header).
+#   REGEX    POSIX extended regex, matched against each log line: everything after CONTEXT, spaces included.
+# BUILD and MODULE lines are generic: they are printed only when no other class matched.
+# Where each pattern comes from: docs/SOURCES.md.
+
+# C# that compiles in the Editor but not for the player (#if !UNITY_EDITOR, platform defines, UnityEditor in runtime code).
+CS 0 \([0-9]+,[0-9]+\): error CS[0-9]+:
+
+# Shader and compute shader compile errors, for the target's graphics APIs.
+SHADER 0 Shader error in '
+
+# IL2CPP and managed code stripping.
+IL2CPP 0 (UnityLinker|il2cpp)(\.exe)? did not run properly
+IL2CPP 0 Fatal error in Unity CIL Linker
+IL2CPP 0 IL2CPP error for (method|type)
+
+# Gradle and the Android SDK.
+GRADLE 0 CommandInvokationFailure: Gradle build failed
+GRADLE 3 ^\* What went wrong:
+ANDROID-SDK 0 Unable to (detect|locate) (Android )?SDK
+ANDROID-SDK 0 Android SDK (is missing|not found)
+ANDROID-SDK 0 Android SDK command-line tools component is not found
+
+# Scenes in the build list.
+SCENE 0 is an incorrect path for a scene file
+SCENE 0 No enabled scenes
+
+# Generic: only when nothing above matched.
+MODULE 0 because build target was unsupported
+BUILD 0 ^Error building Player
+BUILD 0 Build Finished, Result: Failure
