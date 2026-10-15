@@ -19,8 +19,8 @@ A [Claude Code](https://code.claude.com) plugin for Unity 6 projects. It stops t
 ## Install
 
 ```bash
-claude plugin marketplace add <github-username>/claude-code-unity-kit
-claude plugin install unity-kit@unity-kit
+claude plugin marketplace add akaashg/claude-code-unity-kit
+claude plugin install unity-kit@akaashg-unity
 ```
 
 Then, in your Unity project, run `/unity-kit:init` once.

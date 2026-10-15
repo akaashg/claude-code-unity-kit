@@ -10,7 +10,7 @@ GitHub social preview image: **1280 × 640 px**, PNG, under 1 MB. Upload it in t
   - `.meta` files protected
   - Won't finish on a broken compile
   - Static state reset checked
-- **Small footer:** `claude plugin install unity-kit@unity-kit`
+- **Small footer:** `claude plugin install unity-kit@akaashg-unity`
 
 ## Layout
 

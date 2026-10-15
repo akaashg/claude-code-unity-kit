@@ -1,8 +1,9 @@
 {
-  "name": "unity-kit",
+  "name": "akaashg-unity",
   "description": "Claude Code plugins for Unity 6 projects. The core plugin is unity-kit; platform packs named unity-kit-<name> depend on it.",
   "owner": {
-    "name": "Akaash Garg"
+    "name": "Akaash Garg",
+    "url": "https://akaashgarg.com"
   },
   "plugins": [
     {

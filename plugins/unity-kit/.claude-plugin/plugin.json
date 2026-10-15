@@ -4,8 +4,10 @@
   "version": "0.1.0",
   "description": "Guardrails and workflow for Claude Code in Unity 6 projects: .meta and Library guards, a compile gate, pre-commit checks, and Unity code and performance reviewers.",
   "author": {
-    "name": "Akaash Garg"
+    "name": "Akaash Garg",
+    "url": "https://akaashgarg.com"
   },
+  "repository": "https://github.com/akaashg/claude-code-unity-kit",
   "license": "MIT",
   "keywords": ["unity", "unity3d", "unity6", "gamedev"],
   "userConfig": {
