@@ -7,5 +7,13 @@
     "name": "Akaash Garg"
   },
   "license": "MIT",
-  "keywords": ["unity", "unity3d", "unity6", "gamedev"]
+  "keywords": ["unity", "unity3d", "unity6", "gamedev"],
+  "userConfig": {
+    "batch_compile": {
+      "type": "boolean",
+      "title": "Compile in batch mode at end of turn",
+      "description": "When the Editor does not have the project open and no Unity-Skills server answers, the Stop hook launches Unity in batch mode to check compilation. Slower on large projects. /unity-kit:compile-fix can always use batch mode.",
+      "default": false
+    }
+  }
 }
