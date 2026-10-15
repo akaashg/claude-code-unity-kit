@@ -12,7 +12,7 @@ A [Claude Code](https://code.claude.com) plugin for Unity 6 projects. It stops t
 | Claude edits or invents `.meta` files and GUIDs break | Edits to `.meta` files are blocked |
 | An asset moved in the shell leaves its `.meta` behind, and references go missing | The turn can't end while an orphaned `.meta` exists |
 | Claude says "done" while the Console is red | The turn can't end while the project has compile errors |
-| Static fields keep their values between Play sessions when domain reload is off | A reviewer flags every static that isn't reset |
+| Static fields keep their values between Play sessions when domain reload is off | `CLAUDE.md` records the domain reload state and requires a reset; `unity-reviewer` checks it when asked |
 | Code written for a different Unity version | The project's Unity version is in `CLAUDE.md` and checked in review |
 | New code ignores the project's namespaces and asmdefs | Matching the project's style is rule 1 |
 
@@ -36,7 +36,7 @@ Then, in your Unity project, run `/unity-kit:init` once.
 | Skill | `precommit` | Zero errors, no new warnings, every asset has its `.meta`, tests pass |
 | Hook | `guard-paths` | Blocks writes to `.meta` files, `Library/` and `Temp/` |
 | Hook | `stop-checks` | At end of turn: `.meta` pairing, and a compile check when scripts changed |
-| Agent | `unity-reviewer` | Static reset, `.meta`/GUID safety, Unity version APIs, project style |
+| Agent | `unity-reviewer` | Static reset, `.meta`/GUID safety, Unity version APIs, project style. Ask for it by name; it did not trigger on its own in testing |
 | Agent | `perf-reviewer` | Per-frame GC allocations, SRP Batcher/instancing breakers, Update/physics cost |
 
 Why each rule exists: [docs/SOURCES.md](docs/SOURCES.md). What was tested: [docs/TESTED.md](docs/TESTED.md).
