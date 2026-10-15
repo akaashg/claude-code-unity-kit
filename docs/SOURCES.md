@@ -8,10 +8,11 @@ Every rule, hook, skill and agent check in unity-kit traces to the author's own 
 | `guard-paths` hook | Block writing new `.meta` files | Interview: Claude breaks `.meta`/GUIDs when moving or renaming assets |
 | `guard-paths` hook | Block edits under `Library/` and `Temp/` | Original brief for the kit |
 | `stop-checks` hook, `meta-check.sh` | Orphaned `.meta` / asset without `.meta` | Interview: breaks `.meta`/GUIDs; pre-commit check "every asset has its .meta" |
+| `stop-checks` hook, `ref-check.sh` | Block references that broke since the last commit (deleted asset, hand-written GUID) | Interview: Claude breaks `.meta`/GUIDs when moving or renaming assets; the scenes and prefabs that use the asset are where it shows up as Missing |
 | `stop-checks` hook, `compile-check.sh` | Compile gate at end of turn | Interview: pre-commit check "compiles with zero errors" |
 | `compile-check.sh` routes | Unity-Skills, Unity CLI, Editor.log, batch mode | Interview: how compile errors reach Claude today |
 | `compile-fix` skill | Use APIs that exist in the project's Unity version | Interview: Claude uses wrong or old Unity APIs |
-| `precommit` skill | Zero errors, no new warnings, `.meta` pairs, tests pass | Interview: pre-commit checklist |
+| `precommit` skill | Zero errors, no new warnings, `.meta` pairs, no broken references, tests pass | Interview: pre-commit checklist |
 | `init` skill, template | Record the domain reload state | Interview: domain reload depends on the project |
 | `unity-reviewer` check 1, template rule 6 | Reset static state | Interview: static state leaks with domain reload off; reload is turned off only once statics are reset |
 | `unity-reviewer` check 2, template rules 3-4 | `.meta`/GUID safety | Interview |

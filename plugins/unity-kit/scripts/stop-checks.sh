@@ -1,6 +1,7 @@
 #!/bin/sh
-# unity-kit Stop hook: .meta pairing and the compile gate.
-# Blocks stopping (exit 2, reason on stderr) when an asset lost its .meta or the project has compile errors.
+# unity-kit Stop hook: .meta pairing, asset references and the compile gate.
+# Blocks stopping (exit 2, reason on stderr) when an asset lost its .meta, a reference broke since the last
+# commit, or the project has compile errors.
 # Anything that could not be checked is shown to the user as a systemMessage and does not block.
 
 # sed and grep return nothing on invalid UTF-8 in other locales; paths may contain any bytes.
@@ -39,6 +40,14 @@ case $? in
 }$meta" ;;
   2) info="${info:+$info
 }$meta" ;;
+esac
+
+refs=$(sh "$here/ref-check.sh" --state "$state" "$PROJECT")
+case $? in
+  1) block="${block:+$block
+}$refs" ;;
+  2) info="${info:+$info
+}$refs" ;;
 esac
 
 if [ -n "$block" ]; then
