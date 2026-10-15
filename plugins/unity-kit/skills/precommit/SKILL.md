@@ -5,7 +5,7 @@ description: Pre-commit check for a Unity project - zero compile errors, no new 
 
 # Unity pre-commit check
 
-Run all four checks, then report. Run scripts with the Bash tool.
+Run all four checks, then report. Run the scripts with the Bash tool, exactly as written and each on its own (no `; echo`, pipes or `&&`); each one's last line states the result.
 
 1. **Compiles with zero errors.** Run `sh "${CLAUDE_PLUGIN_ROOT}/scripts/compile-check.sh" --state "${CLAUDE_PLUGIN_DATA}"`. Exit 0 is a pass. Exit 1 is a fail: list the errors. Exit 3 means the result is stale or no route was available: report it as **not checked** and give the reason the script printed.
 2. **No new warnings.** From the same report, take the `warning CS` lines whose file is in `git diff --name-only HEAD` or `git ls-files --others --exclude-standard`. Any such line is a fail. Warnings in files this change did not touch are not new; mention their count only.

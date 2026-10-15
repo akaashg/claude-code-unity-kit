@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **No second compile at the end of a turn.** When `compile-fix` or `precommit` just compiled clean and no script changed since, the Stop hook skips its compile (16.5 s to 0.9 s in testing). A result with errors is never skipped.
+- `compile-fix` and `precommit` tell Claude to run `compile-check.sh` exactly as written, so it doesn't append `; echo` and get the command refused in headless runs.
 
 ## 0.1.1 (2026-10-15)
 
