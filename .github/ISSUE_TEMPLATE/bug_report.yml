@@ -1,0 +1,37 @@
+name: Bug report
+description: A hook, skill or agent did the wrong thing
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you asked Claude, what the kit did, and what you expected.
+    validations:
+      required: true
+  - type: input
+    id: claude
+    attributes:
+      label: Claude Code version
+      placeholder: claude --version
+    validations:
+      required: true
+  - type: input
+    id: unity
+    attributes:
+      label: Unity version
+      placeholder: 6000.0.84f1
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options: [Windows (Git Bash), macOS, Linux]
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Hook or script output
+      render: text

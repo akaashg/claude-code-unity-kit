@@ -1,0 +1,25 @@
+name: Rule proposal
+description: Propose a rule, check or pack item
+labels: [rule]
+body:
+  - type: textarea
+    id: rule
+    attributes:
+      label: The rule
+      description: One sentence. What Claude should or shouldn't do in a Unity project.
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Where it comes from
+      description: The real problem you hit, a Unity issue tracker link, or a Unity doc page. Rules without a source won't be added.
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Core or pack
+      options: [Core (any Unity 6 project), Quest pack, OpenXR pack, Mobile pack, New pack]
+    validations:
+      required: true

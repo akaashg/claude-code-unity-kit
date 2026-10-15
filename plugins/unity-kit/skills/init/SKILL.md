@@ -30,5 +30,6 @@ If a file is missing or a value can't be read, write `unknown (<reason>)`. Never
 ## 3. Report
 
 Print the five facts in a short list and the path written. Then:
+
 - If domain reload is **off** and any script under `Assets/` declares a `static` field or event, suggest running the `unity-kit:unity-reviewer` agent to check that each one is reset.
 - If there are no asmdefs, mention it, but do not create any; that is the user's call.
