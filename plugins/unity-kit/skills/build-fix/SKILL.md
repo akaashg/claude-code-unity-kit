@@ -10,7 +10,7 @@ disable-model-invocation: true
 Target: `$ARGUMENTS`. A BuildTarget name (`Android`, `StandaloneWindows64`, ...) goes to `--target`; anything else is a build profile name or `.asset` path and goes to `--profile`. If no target is given, list the profiles under `Assets/Settings/Build Profiles/` and ask which target to build.
 
 1. Run with the Bash tool, exactly as written and on its own (no `; echo`, pipes or `&&`), in the background (`run_in_background`), because a build takes minutes; wait for it to finish. Its last line states the result: `sh "${CLAUDE_PLUGIN_ROOT}/scripts/build-check.sh" --target <target> --state "${CLAUDE_PLUGIN_DATA}"` (or `--profile "<name>"` instead of `--target`).
-   - Exit 0: built. Report the route, the build size line and the output path, then stop.
+   - Exit 0: built. Report the route, the build size line and the output path. Run `git status --short` and tell the user what the build changed: Unity can re-save render pipeline assets during a build, an Android build can leave Gradle files in `.utmp/`, and a build for another target leaves the project on that target (the Editor reimports on next open). Then stop.
    - Exit 1: errors are listed as `File(line,col): error CLASS: message` or `error CLASS: message`. Go to step 2.
    - Exit 3 with **NEEDS BUILD SCRIPT**: see "Build script" below.
    - Other exit 3: not checked. Tell the user the reason it printed. If the Editor has the project open, ask them to close it and say so; never claim the project builds.

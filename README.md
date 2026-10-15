@@ -74,7 +74,7 @@ A project can compile in the Editor and still fail to build: code under `#if !UN
 2. **Unity CLI** `unity build`, if installed, else **batch mode**. Both need the Editor closed; with the project open in the Editor the result is **not checked**.
 3. **How Unity builds the target.** Desktop targets use Unity's `-buildWindows64Player`-style flags. A Unity 6 build profile uses `-activeBuildProfile` and `-build`. Other targets (Android, iOS, WebGL) have no batch build flag, so they need a profile, the project's own build method (`--method`), or `Assets/Editor/UnityKitBuild.cs`. The skill asks before adding that file, and never writes its `.meta`.
 4. **The log.** Error lines are matched against [build-patterns.txt](plugins/unity-kit/scripts/build-patterns.txt), one regex per line, by class: `CS`, `SHADER`, `IL2CPP`, `GRADLE`, `ANDROID-SDK`, `SCENE`, and generic `MODULE`/`BUILD`. To catch a new failure, add a line there. The full log stays in `Logs/unity-kit-build-<target>.log`; the player goes to `Builds/unity-kit/<target>/` unless you pass `--output`.
-5. **Size.** After a successful build it prints Unity's "Complete build size" and the change since the last build of that target.
+5. **Size.** After a successful build it prints Unity's "Complete build size" (uncompressed) and the change since the last build of that target, plus the file size of an `.apk` or `.aab`. Unity writes the CLI's access token into the log's command line; the check removes it.
 
 Exit codes match the compile check: 0 built, 1 build errors, 3 not checked.
 
