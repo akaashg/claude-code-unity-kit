@@ -73,6 +73,38 @@ rm "$P/Assets/N.cs"; echo "guid: 2" > "$P/Assets/Gone.cs.meta"
 stop "orphaned .meta blocks"         2 '{"stop_hook_active":false}'
 stop "second stop never blocks"      0 '{"stop_hook_active":true}'
 
+# Shared clean-compile state between compile-fix/precommit and the Stop hook, using a fake Unity
+# for the batch route: it writes a clean or broken compile log and counts its calls.
+rm -f "$P/Assets/Gone.cs.meta"
+FAKE="$T/FakeUnity"
+cat > "$FAKE" <<'EOF'
+#!/bin/sh
+log=""; while [ $# -gt 0 ]; do [ "$1" = "-logFile" ] && log=$2; shift; done
+echo x >> "$FAKE_UNITY_CALLS"
+echo "[ScriptCompilation] Requested script compilation because: test" > "$log"
+if [ -n "$FAKE_UNITY_ERROR" ]; then
+  echo 'Assets/A.cs(1,1): error CS0103: The name x does not exist in the current context' >> "$log"; exit 1
+fi
+exit 0
+EOF
+chmod +x "$FAKE"
+export UNITY_EDITOR_PATH="$FAKE" FAKE_UNITY_CALLS="$T/calls"
+S="$T/state"
+calls() { [ -f "$T/calls" ] && wc -l < "$T/calls" | tr -d ' ' || echo 0; }
+
+sh "$SCRIPTS/compile-check.sh" --batch --state "$S" "$P" >/dev/null; check "compile-check: clean via fake batch" 0 "$?"
+before=$(calls)
+printf '{"stop_hook_active":false}' | CLAUDE_PROJECT_DIR="$P" CLAUDE_PLUGIN_DATA="$S" CLAUDE_PLUGIN_OPTION_BATCH_COMPILE=true sh "$SCRIPTS/stop-checks.sh" >/dev/null 2>&1
+check "stop: after a clean compile-fix, no second compile" "$before" "$(calls)"
+sleep 1; touch "$P/Assets/N.cs"
+printf '{"stop_hook_active":false}' | CLAUDE_PROJECT_DIR="$P" CLAUDE_PLUGIN_DATA="$S" CLAUDE_PLUGIN_OPTION_BATCH_COMPILE=true sh "$SCRIPTS/stop-checks.sh" >/dev/null 2>&1
+check "stop: script changed, compiles again" "$((before + 1))" "$(calls)"
+FAKE_UNITY_ERROR=1 sh "$SCRIPTS/compile-check.sh" --batch --state "$S" "$P" >/dev/null; check "compile-check: errors" 1 "$?"
+before=$(calls)
+printf '{"stop_hook_active":false}' | FAKE_UNITY_ERROR=1 CLAUDE_PROJECT_DIR="$P" CLAUDE_PLUGIN_DATA="$S" CLAUDE_PLUGIN_OPTION_BATCH_COMPILE=true sh "$SCRIPTS/stop-checks.sh" >/dev/null 2>&1
+check "stop: errors left by compile-fix still block" 2 "$?"
+check "stop: errors are compiled again, not skipped" "$((before + 1))" "$(calls)"
+
 echo
 [ "$fails" -eq 0 ] && echo "all hook tests passed" || echo "$fails hook test(s) failed"
 [ "$fails" -eq 0 ]

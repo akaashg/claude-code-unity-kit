@@ -7,7 +7,7 @@ paths: ["**/*.cs", "**/*.asmdef", "**/*.asmref"]
 
 # Compile and fix (Unity)
 
-1. Run with the Bash tool: `sh "${CLAUDE_PLUGIN_ROOT}/scripts/compile-check.sh" --batch`
+1. Run with the Bash tool: `sh "${CLAUDE_PLUGIN_ROOT}/scripts/compile-check.sh" --batch --state "${CLAUDE_PLUGIN_DATA}"`
    - Exit 0: compiles clean. Report the route it used and stop.
    - Exit 1: errors are listed as `File.cs(line,col): error CSxxxx: message`. Go to step 2.
    - Exit 3: not checked. Tell the user the reason it printed (stale Editor, Editor.log from another instance, no Editor found) and what to do. Do not claim it compiles.

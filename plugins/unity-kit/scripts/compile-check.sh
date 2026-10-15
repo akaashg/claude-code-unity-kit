@@ -1,6 +1,8 @@
 #!/bin/sh
 # unity-kit compile check.
-# Usage: compile-check.sh [--batch] [project_dir]
+# Usage: compile-check.sh [--batch] [--state dir] [--if-changed] [project_dir]
+#   --state dir    remember a clean result in dir, so later checks can skip an unchanged project
+#   --if-changed   with --state: exit 0 at once if no script changed since the last clean result
 #
 # Routes, first one that works wins:
 #   1. Unity-Skills REST server (localhost:8090-8100), read-only debug_check_compilation
@@ -14,8 +16,16 @@
 # sed and grep return nothing on invalid UTF-8 in other locales; paths may contain any bytes.
 export LC_ALL=C
 
-BATCH=0
-if [ "$1" = "--batch" ]; then BATCH=1; shift; fi
+BATCH=0; STATE=""; IF_CHANGED=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --batch) BATCH=1 ;;
+    --state) STATE=$2; shift ;;
+    --if-changed) IF_CHANGED=1 ;;
+    *) break ;;
+  esac
+  shift
+done
 PROJECT=${1:-${CLAUDE_PROJECT_DIR:-$PWD}}
 PROJECT=$(printf '%s' "$PROJECT" | sed 's#\\#/#g; s#/$##')
 # Git Bash: /e/Game -> E:/Game, the form Unity writes in Editor.log.
@@ -37,6 +47,23 @@ newer_sources() {
   find "$PROJECT/Assets" "$PROJECT/Packages" \( -name '*.cs' -o -name '*.asmdef' -o -name '*.asmref' \) \
     -newer "$1" 2>/dev/null | head -n 1
 }
+
+# The last clean result per project. Only clean results are recorded, so a project left with
+# errors is always compiled again. The stamp gets the time the check started, so a script
+# saved during the compile still counts as changed.
+touch "$TMP/started"
+CLEAN=""
+if [ -n "$STATE" ]; then
+  STATE=$(printf '%s' "$STATE" | sed 's#\\#/#g')
+  mkdir -p "$STATE" 2>/dev/null
+  CLEAN="$STATE/$(printf '%s' "$PROJECT" | tr 'A-Z' 'a-z' | tr -c 'a-z0-9_-' '-').clean"
+  if [ "$IF_CHANGED" -eq 1 ] && [ -f "$CLEAN" ] && [ -z "$(newer_sources "$CLEAN")" ]; then
+    echo "unity-kit: no script changed since the last clean compile."
+    exit 0
+  fi
+fi
+mark_clean() { [ -n "$CLEAN" ] && touch -r "$TMP/started" "$CLEAN" 2>/dev/null; return 0; }
+mark_errors() { [ -n "$CLEAN" ] && rm -f "$CLEAN"; return 0; }
 
 # Unity leaves Temp/UnityLockfile behind after batch runs and crashes, so the
 # file existing is not enough: check that a running Editor holds it.
@@ -86,9 +113,11 @@ report_from_json() {
 
 finish() { # $1 = route name
   if [ "$ERRORS" -gt 0 ]; then
+    mark_errors
     echo "unity-kit: $ERRORS compile error(s) via $1."
     exit 1
   fi
+  mark_clean
   echo "unity-kit: compiles clean via $1."
   exit 0
 }
@@ -123,9 +152,11 @@ if command -v curl >/dev/null 2>&1; then
       printf '%s' "$body" > "$TMP/us.json"
       report_from_json "$TMP/us.json"
       [ "$ERRORS" -gt 0 ] || printf '%s\n' "$body" | cut -c1-4000
+      mark_errors
       echo "unity-kit: compile errors via Unity-Skills (port $port)."
       exit 1
     fi
+    mark_clean
     echo "unity-kit: compiles clean via Unity-Skills (port $port)."
     exit 0
   done

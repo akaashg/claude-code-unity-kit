@@ -15,35 +15,23 @@ printf '%s' "$input" | tr -d '\n' | grep -q '"stop_hook_active"[[:space:]]*:[[:s
 PROJECT=$(printf '%s' "${CLAUDE_PROJECT_DIR:-$PWD}" | sed 's#\\#/#g; s#/$##')
 [ -f "$PROJECT/ProjectSettings/ProjectVersion.txt" ] || exit 0
 
-# Remember when we last checked, per project, so the compile gate runs only after script changes.
-key=$(printf '%s' "$PROJECT" | tr -c 'A-Za-z0-9_-' '-')
+# Clean compile results are shared with /unity-kit:compile-fix and /unity-kit:precommit through
+# this folder, so a project they just compiled clean is not compiled again here.
 state=${CLAUDE_PLUGIN_DATA:-${TMPDIR:-/tmp}/unity-kit}
-mkdir -p "$state" 2>/dev/null
-stamp="$state/$key.last-compile-check"
 
 block=""
 info=""
 
 # Compile first: a batch-mode run imports new assets, so Unity has written their .meta files
 # by the time the .meta check runs.
-changed=1
-if [ -f "$stamp" ]; then
-  changed=$(find "$PROJECT/Assets" "$PROJECT/Packages" \( -name '*.cs' -o -name '*.asmdef' -o -name '*.asmref' \) \
-    -newer "$stamp" 2>/dev/null | head -n 1 | grep -c .)
-fi
-
-if [ "$changed" -gt 0 ]; then
-  batch=""
-  [ "$CLAUDE_PLUGIN_OPTION_BATCH_COMPILE" = "true" ] && batch="--batch"
-  compile=$(sh "$here/compile-check.sh" $batch "$PROJECT")
-  case $? in
-    0) touch "$stamp" ;;
-    1) touch "$stamp"; block="${block:+$block
-}$compile" ;;
-    *) info="${info:+$info
-}$compile" ;;
-  esac
-fi
+batch=""
+[ "$CLAUDE_PLUGIN_OPTION_BATCH_COMPILE" = "true" ] && batch="--batch"
+compile=$(sh "$here/compile-check.sh" $batch --state "$state" --if-changed "$PROJECT")
+case $? in
+  0) ;;
+  1) block="$compile" ;;
+  *) info="$compile" ;;
+esac
 
 meta=$(sh "$here/meta-check.sh" "$PROJECT")
 case $? in

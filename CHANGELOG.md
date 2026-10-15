@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **No second compile at the end of a turn.** When `compile-fix` or `precommit` just compiled clean and no script changed since, the Stop hook skips its compile (16.5 s to 0.9 s in testing). A result with errors is never skipped.
+
 ## 0.1.1 (2026-10-15)
 
 Fixes found by running the kit against a real Unity 6000.0.84f1 Editor. Details in [docs/TESTED.md](docs/TESTED.md).

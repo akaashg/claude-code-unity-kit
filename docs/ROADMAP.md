@@ -4,7 +4,6 @@
 
 - Run the kit on macOS against a real Unity install.
 - Support Windows machines without Git Bash (PowerShell versions of the hook scripts).
-- Skip the Stop-hook compile when `compile-fix` just compiled clean in the same turn.
 - Find out why a hook-driven batch run adds `com.unity.toolchain.win-x86_64-linux-x86_64` to `manifest.json` (see [TESTED.md](TESTED.md)).
 - Run the `precommit-trigger` eval on macOS or Linux.
 
