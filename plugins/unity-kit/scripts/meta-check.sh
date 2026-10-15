@@ -6,6 +6,9 @@
 #       3 not a Unity project.
 # Follows Unity's import rules: names starting with "." or ending with "~", "cvs" and "*.tmp" are ignored.
 
+# sed and grep return nothing on invalid UTF-8 in other locales; paths may contain any bytes.
+export LC_ALL=C
+
 PROJECT=${1:-${CLAUDE_PROJECT_DIR:-$PWD}}
 PROJECT=$(printf '%s' "$PROJECT" | sed 's#\\#/#g; s#/$##')
 if [ ! -d "$PROJECT/Assets" ] || [ ! -f "$PROJECT/ProjectSettings/ProjectVersion.txt" ]; then

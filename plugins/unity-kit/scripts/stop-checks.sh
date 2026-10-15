@@ -3,6 +3,9 @@
 # Blocks stopping (exit 2, reason on stderr) when an asset lost its .meta or the project has compile errors.
 # Anything that could not be checked is shown to the user as a systemMessage and does not block.
 
+# sed and grep return nothing on invalid UTF-8 in other locales; paths may contain any bytes.
+export LC_ALL=C
+
 input=$(cat)
 here=$(dirname "$0")
 

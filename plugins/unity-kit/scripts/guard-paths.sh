@@ -3,6 +3,9 @@
 # Blocks (exit 2) writes to .meta files and to Library/ or Temp/ inside a Unity project.
 # Reads the hook payload on stdin. Anything outside a Unity project passes.
 
+# sed and grep return nothing on invalid UTF-8 in other locales; paths may contain any bytes.
+export LC_ALL=C
+
 input=$(cat)
 
 # tool_input.file_path. Unescape just enough for paths first (\\ -> /, \/ -> /, \" -> '),

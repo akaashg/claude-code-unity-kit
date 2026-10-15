@@ -11,6 +11,9 @@
 # Exit: 0 compiles clean, 1 compile errors, 3 not checked (stale, unavailable, not a Unity project).
 # Output: a short report for Claude. Error and warning lines are printed as Unity writes them.
 
+# sed and grep return nothing on invalid UTF-8 in other locales; paths may contain any bytes.
+export LC_ALL=C
+
 BATCH=0
 if [ "$1" = "--batch" ]; then BATCH=1; shift; fi
 PROJECT=${1:-${CLAUDE_PROJECT_DIR:-$PWD}}

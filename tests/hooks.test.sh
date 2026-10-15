@@ -37,6 +37,11 @@ guard "write .cs"                        0 "{\"tool_name\":\"Write\",\"tool_inpu
 guard "content mentions file_path"       0 "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$fwd/Assets/C.cs\",\"content\":\"\\\"file_path\\\":\\\"x.meta\\\"\"}}"
 guard ".meta outside a Unity project"    0 "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$T/other/a.meta\",\"content\":\"x\"}}"
 guard "no file_path"                     0 "{\"tool_name\":\"Write\",\"tool_input\":{}}"
+U="$T/Café Jeu"   # non-ASCII project path
+mkdir -p "$U/ProjectSettings" "$U/Assets"
+cp "$P/ProjectSettings/ProjectVersion.txt" "$U/ProjectSettings/"
+echo "guid: 3" > "$U/Assets/É.cs.meta"
+guard "non-ASCII path, existing .meta"   2 "{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$U/Assets/É.cs.meta\"}}"
 case "$(uname -s)" in
   MINGW*|MSYS*|CYGWIN*)
     guard "Windows backslash path, .meta" 2 "{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$win\\\\Assets\\\\Scripts\\\\A.cs.meta\"}}" ;;
