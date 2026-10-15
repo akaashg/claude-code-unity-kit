@@ -169,6 +169,122 @@ refs "no git: can't tell" 2
 refs "not a Unity project" 3 "$T"
 unset -f git
 
+# Player builds, with a fake Unity that is both the Editor (batch mode) and the Unity CLI. It records
+# its arguments and writes the build log for the failure class in FAKE_BUILD.
+B="$T/Build Game"
+mkdir -p "$B/ProjectSettings" "$B/Assets/Scenes" "$B/Assets/Scripts"
+cp "$P/ProjectSettings/ProjectVersion.txt" "$B/ProjectSettings/"
+echo scene > "$B/Assets/Scenes/Main.unity"; meta "$B/Assets/Scenes/Main.unity" 22222222222222222222222222222222
+echo scene > "$B/Assets/Scenes/Extra.unity"; meta "$B/Assets/Scenes/Extra.unity" 33333333333333333333333333333333
+ebs() { # enabled:path:guid ...
+  printf '%%YAML 1.1\nEditorBuildSettings:\n  m_ObjectHideFlags: 0\n  serializedVersion: 2\n  m_Scenes:\n'
+  for e in "$@"; do
+    printf '  - enabled: %s\n    path: %s\n    guid: %s\n' "$(echo "$e" | cut -d: -f1)" "$(echo "$e" | cut -d: -f2)" "$(echo "$e" | cut -d: -f3)"
+  done
+  printf '  m_configObjects: {}\n'
+}
+ebs 1:Assets/Scenes/Main.unity:22222222222222222222222222222222 0:Assets/Scenes/Extra.unity:33333333333333333333333333333333 \
+  > "$B/ProjectSettings/EditorBuildSettings.asset"
+FB="$T/FakeBuild"
+cat > "$FB" <<'EOF'
+#!/bin/sh
+: > "$FAKE_BUILD_ARGS"; for a in "$@"; do echo "$a" >> "$FAKE_BUILD_ARGS"; done
+[ -n "$FAKE_CLI_NOSTART" ] && { echo "Error: editor not found"; exit 6; }
+log=""; while [ $# -gt 0 ]; do case "$1" in -logFile|--log-file) log=$2 ;; esac; shift; done
+fail() { printf '%s\nBuild Finished, Result: Failure.\n' "$1" > "$log"; exit 1; }
+case "${FAKE_BUILD:-clean}" in
+  clean) printf 'Build Report\nComplete build size    %s\nBuild Finished, Result: Success.\n' "${FAKE_SIZE:-1.0 gb}" > "$log" ;;
+  clean-shader) printf "Shader error in 'Fog': undeclared identifier 'x' at line 3 (on gles3)\nBuild Finished, Result: Success.\n" > "$log" ;;
+  cs) fail "Assets/Scripts/Net.cs(12,9): error CS0103: The name 'EditorPrefs' does not exist in the current context
+Error building Player because scripts had compiler errors" ;;
+  shader) fail "Shader error in 'EnvironmentMapping': syntax error: unexpected token 'if' at kernel Raymarch at EnvironmentMapping.compute(74) (on vulkan)
+Shader error in 'EnvironmentMapping': syntax error: unexpected token 'if' at kernel DilateDepthStep at EnvironmentMapping.compute(74) (on vulkan)" ;;
+  il2cpp) fail "Fatal error in Unity CIL Linker
+Exception: UnityLinker.exe did not run properly!" ;;
+  gradle) printf 'FAILURE: Build failed with an exception.\r\n\r\n* What went wrong:\r\nExecution failed for task :launcher:checkReleaseDuplicateClasses.\r\n> Duplicate class com.google.Foo found in modules a.aar and b.aar\r\n\r\n* Try:\r\nCommandInvokationFailure: Gradle build failed.\r\nBuild Finished, Result: Failure.\r\n' > "$log"; exit 1 ;;
+  sdk) fail "Unable to detect SDK in the selected directory." ;;
+  module) fail "Error building player because build target was unsupported" ;;
+  unknown) fail "Something new went wrong" ;;
+  crash) echo "Aborting batchmode due to failure" > "$log"; exit 1 ;;
+esac
+exit 0
+EOF
+chmod +x "$FB"
+export UNITY_EDITOR_PATH="$FB" UNITY_KIT_UNITY_CLI=none FAKE_BUILD_ARGS="$T/build-args" FAKE_BUILD= FAKE_SIZE= FAKE_CLI_NOSTART=
+BS="$T/buildstate"
+build() { # name expected-exit [args]
+  n=$1; e=$2; shift 2
+  sh "$SCRIPTS/build-check.sh" "$@" "$B" > "$T/build-out"; check "build-check: $n" "$e" "$?"
+}
+has() { grep -qF -- "$2" "$T/build-out"; check "build-check: $1" 0 "$?"; }
+arg() { grep -qxF -- "$2" "$T/build-args"; check "build-check: $1" 0 "$?"; }
+
+build "not a Unity project" 3 --target StandaloneWindows64 "$T"
+sh "$SCRIPTS/build-check.sh" "$B" > /dev/null; check "build-check: no target, not checked" 3 "$?"
+build "clean desktop build" 0 --target StandaloneWindows64 --state "$BS"
+arg "desktop target uses the legacy build flag" -buildWindows64Player
+has "reports the build size" "build size 1.0 gb."
+FAKE_SIZE="1.1 gb"; build "second clean build" 0 --target StandaloneWindows64 --state "$BS"; FAKE_SIZE=
+has "shows the change from the last build" "build size 1.1 gb (last build 1.0 gb, +102.4 mb)."
+FAKE_BUILD=clean-shader; build "errors logged by a successful build don't fail it" 0 --target StandaloneWindows64
+has "but are listed" "error SHADER: Shader error in 'Fog'"
+for c in cs:"Assets/Scripts/Net.cs(12,9): error CS0103:" \
+         shader:"EnvironmentMapping.compute(74,1): error SHADER: Shader error in 'EnvironmentMapping'" \
+         il2cpp:"error IL2CPP: Fatal error in Unity CIL Linker" \
+         gradle:"error GRADLE: * What went wrong: Execution failed for task :launcher:checkReleaseDuplicateClasses. > Duplicate class com.google.Foo found in modules a.aar and b.aar" \
+         sdk:"error ANDROID-SDK: Unable to detect SDK" \
+         module:"error MODULE: Error building player because build target was unsupported" \
+         unknown:"error BUILD: Build Finished, Result: Failure."; do
+  FAKE_BUILD=${c%%:*}; build "${c%%:*} failure" 1 --target StandaloneWindows64
+  has "${c%%:*} error line" "${c#*:}"
+done
+FAKE_BUILD=shader; build "shader failure, one line for all kernels" 1 --target StandaloneWindows64
+check "build-check: one line per distinct error" 1 "$(grep -c 'error SHADER' "$T/build-out")"
+FAKE_BUILD=gradle; build "gradle failure, cause only" 1 --target StandaloneWindows64
+check "build-check: Gradle cause stops at the next section" 0 "$(grep -c 'Try:' "$T/build-out")"
+FAKE_BUILD=cs; build "generic lines hidden when a class matched" 1 --target StandaloneWindows64
+check "build-check: no generic BUILD line next to a CS error" 0 "$(grep -c 'error BUILD' "$T/build-out")"
+FAKE_BUILD=crash; build "Unity exits without a finished build" 3 --target StandaloneWindows64; FAKE_BUILD=
+
+build "Android without a build method" 3 --target Android
+has "says a build script is needed" "NEEDS BUILD SCRIPT"
+mkdir -p "$B/Assets/Editor"; echo "public static class UnityKitBuild {}" > "$B/Assets/Editor/UnityKitBuild.cs"
+build "Android with UnityKitBuild.cs" 0 --target Android
+arg "uses the kit's build method" UnityKit.UnityKitBuild.Build
+arg "starts the Editor on the target" android
+rm -r "$B/Assets/Editor"
+mkdir -p "$B/Assets/Settings/Build Profiles"
+printf 'MonoBehaviour:\n  m_Name: Quest\n  m_BuildTarget: 13\n  m_OverrideGlobalSceneList: 0\n' > "$B/Assets/Settings/Build Profiles/Quest.asset"
+build "build profile by name" 0 --profile Quest
+arg "passes the profile path" "Assets/Settings/Build Profiles/Quest.asset"
+grep -q 'Builds/unity-kit/Android/Build Game.apk$' "$T/build-args"; check "build-check: profile target read from m_BuildTarget" 0 "$?"
+build "unknown profile" 3 --profile Nope
+
+UNITY_KIT_UNITY_CLI="$FB"; build "Unity CLI route" 0 --target StandaloneWindows64
+has "names the Unity CLI route" "via Unity CLI"
+arg "Unity CLI gets the target" StandaloneWindows64
+FAKE_CLI_NOSTART=1; build "Unity CLI can't start: no batch fallback with the same fake" 3 --target StandaloneWindows64; FAKE_CLI_NOSTART=; UNITY_KIT_UNITY_CLI=none
+has "says it falls back to batch mode" "Trying batch mode."
+
+ebs 1:Assets/Scenes/Gone.unity:44444444444444444444444444444444 1:Assets/Scenes/Main.unity:22222222222222222222222222222222 \
+  > "$B/ProjectSettings/EditorBuildSettings.asset"
+: > "$T/build-args"
+build "enabled scene deleted" 1 --target StandaloneWindows64
+has "names the build list line" "ProjectSettings/EditorBuildSettings.asset(7,1): error SCENE: enabled scene Assets/Scenes/Gone.unity"
+check "build-check: no build after a scene error" 0 "$(wc -l < "$T/build-args" | tr -d ' ')"
+ebs 1:Assets/Old/Main.unity:22222222222222222222222222222222 > "$B/ProjectSettings/EditorBuildSettings.asset"
+build "scene moved with its .meta" 0 --target StandaloneWindows64
+ebs 0:Assets/Scenes/Main.unity:22222222222222222222222222222222 > "$B/ProjectSettings/EditorBuildSettings.asset"
+build "no enabled scenes" 1 --target StandaloneWindows64
+has "says no enabled scenes" "error SCENE: No enabled scenes"
+ebs 1:Assets/Scenes/Main.unity:22222222222222222222222222222222 0:Assets/Scenes/Extra.unity:33333333333333333333333333333333 \
+  > "$B/ProjectSettings/EditorBuildSettings.asset"
+echo 'class L { void A() { SceneManager.LoadScene("Extra"); SceneManager.LoadScene("Main"); } }' > "$B/Assets/Scripts/L.cs"
+build "scene loaded by name but disabled" 0 --target StandaloneWindows64
+has "warns about the disabled scene" 'Assets/Scripts/L.cs:1 loads scene "Extra" by name'
+check "build-check: no warning for an enabled scene" 1 "$(grep -c 'loads scene' "$T/build-out")"
+unset UNITY_EDITOR_PATH UNITY_KIT_UNITY_CLI
+
 echo
 [ "$fails" -eq 0 ] && echo "all hook tests passed" || echo "$fails hook test(s) failed"
 [ "$fails" -eq 0 ]
