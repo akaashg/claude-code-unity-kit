@@ -12,4 +12,6 @@ Three cases for `claude plugin eval`. Each builds a minimal Unity 6 project with
 claude plugin eval plugins/unity-kit --scaffold --allow-tools Edit Write Bash --runs 3
 ```
 
+On Windows, run this from **Git Bash**, not PowerShell. The fixture scripts are run with `bash`, and in PowerShell that usually resolves to WSL's `bash.exe`; with no Linux distro installed every run fails with `scaffold failed ... execvpe(/bin/bash) failed`.
+
 `precommit-trigger` needs `Bash`. Claude Code refuses a Bash grant where it can't sandbox the shell, which includes Windows today, so run that case on macOS or Linux, or drop `Bash` and expect it to score lower.

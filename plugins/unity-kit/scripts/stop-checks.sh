@@ -24,12 +24,8 @@ stamp="$state/$key.last-compile-check"
 block=""
 info=""
 
-meta=$(sh "$here/meta-check.sh" "$PROJECT")
-case $? in
-  1) block="$meta" ;;
-  2) info="$meta" ;;
-esac
-
+# Compile first: a batch-mode run imports new assets, so Unity has written their .meta files
+# by the time the .meta check runs.
 changed=1
 if [ -f "$stamp" ]; then
   changed=$(find "$PROJECT/Assets" "$PROJECT/Packages" \( -name '*.cs' -o -name '*.asmdef' -o -name '*.asmref' \) \
@@ -48,6 +44,14 @@ if [ "$changed" -gt 0 ]; then
 }$compile" ;;
   esac
 fi
+
+meta=$(sh "$here/meta-check.sh" "$PROJECT")
+case $? in
+  1) block="${block:+$block
+}$meta" ;;
+  2) info="${info:+$info
+}$meta" ;;
+esac
 
 if [ -n "$block" ]; then
   printf '%s\n' "$block" "Fix these before finishing (run /unity-kit:compile-fix for compile errors)." >&2
