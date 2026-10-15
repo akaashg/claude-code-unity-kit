@@ -55,6 +55,12 @@ echo "class N {}" > "$P/Assets/N.cs"
 echo "ignored" > "$P/Assets/.hidden"; mkdir -p "$P/Assets/Docs~"; echo x > "$P/Assets/Docs~/a.txt"
 sh "$SCRIPTS/meta-check.sh" "$P" >/dev/null; check "meta-check: new file only" 2 "$?"
 
+rm "$P/Assets/N.cs" "$P/Assets/.hidden"; rm -r "$P/Assets/Docs~"
+mkdir -p "$P/Assets/Empty"; printf 'fileFormatVersion: 2\nguid: 4\nfolderAsset: yes\n' > "$P/Assets/Empty.meta"
+rmdir "$P/Assets/Empty"   # as after a git clone: folder .meta kept, empty folder not
+sh "$SCRIPTS/meta-check.sh" "$P" >/dev/null; check "meta-check: empty folder lost by git is not an orphan" 2 "$?"
+rm "$P/Assets/Empty.meta"; echo "class N {}" > "$P/Assets/N.cs"
+
 sh "$SCRIPTS/compile-check.sh" "$P" >/dev/null; check "compile-check: no route, not checked" 3 "$?"
 sh "$SCRIPTS/compile-check.sh" "$T" >/dev/null; check "compile-check: not a Unity project" 3 "$?"
 

@@ -26,8 +26,15 @@ find Assets -mindepth 1 \( -name '.*' -o -name '*~' -o -iname 'cvs' -o -name '*.
 grep -v '\.meta$' "$TMP/all" | LC_ALL=C sort > "$TMP/assets"
 grep '\.meta$' "$TMP/all" | sed 's/\.meta$//' | LC_ALL=C sort > "$TMP/metas"
 
-LC_ALL=C comm -13 "$TMP/assets" "$TMP/metas" > "$TMP/orphans"
+LC_ALL=C comm -13 "$TMP/assets" "$TMP/metas" > "$TMP/orphans_all"
 LC_ALL=C comm -23 "$TMP/assets" "$TMP/metas" > "$TMP/missing"
+
+# Git does not store empty folders, so a fresh clone can have a folder's .meta without the folder.
+# Unity recreates the folder on import; that is not a broken reference.
+: > "$TMP/orphans"; : > "$TMP/emptydirs"
+while IFS= read -r o; do
+  if grep -q '^folderAsset: yes' "$o.meta" 2>/dev/null; then echo "$o" >> "$TMP/emptydirs"; else echo "$o" >> "$TMP/orphans"; fi
+done < "$TMP/orphans_all"
 
 status=0
 if [ -s "$TMP/orphans" ]; then
@@ -39,6 +46,11 @@ if [ -s "$TMP/missing" ]; then
   echo "unity-kit: assets with no .meta (new and not yet imported by Unity, or moved without their .meta):"
   sed 's/^/  /' "$TMP/missing" | head -n 50
   echo "  Do not write .meta files by hand. If an asset was moved, move its old .meta with it; otherwise let Unity import it."
+  [ "$status" -eq 0 ] && status=2
+fi
+if [ -s "$TMP/emptydirs" ]; then
+  echo "unity-kit: folder .meta files whose folder is missing (usually an empty folder git did not keep; Unity recreates it on import):"
+  sed 's/^/  /; s/$/.meta/' "$TMP/emptydirs" | head -n 50
   [ "$status" -eq 0 ] && status=2
 fi
 [ "$status" -eq 0 ] && echo "unity-kit: every asset under Assets/ has its .meta."
