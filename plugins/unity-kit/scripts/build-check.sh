@@ -278,10 +278,20 @@ finish() { # $1 = route name, $2 = Unity exit code
     echo "unity-kit: Unity exited with code $2 via $1 and wrote no log. Not checked."
     exit 3
   fi
+  # The Unity CLI hands Unity an access token, and Unity writes its command line into the log.
+  if grep -q '^-accessToken' "$LOG"; then
+    awk 'r { print "<removed by unity-kit>"; r = 0; next } { print } /^-accessToken/ { r = 1 }' "$LOG" > "$LOG.tmp" &&
+      mv "$LOG.tmp" "$LOG"
+  fi
   report_from_log "$LOG"
   if grep -q 'Build Finished, Result: Success' "$LOG" && [ "$2" -eq 0 ]; then
     [ "$ERRORS" -gt 0 ] && echo "unity-kit: warning: the lines above were logged, but did not fail the build."
     report_size "$LOG"
+    # Unity's build size is uncompressed; an Android package is much smaller.
+    case "$OUTPUT" in
+      *.apk|*.aab) [ -f "$OUTPUT" ] &&
+        echo "unity-kit: $(basename "$OUTPUT") is $(du -k "$OUTPUT" | awk '{ printf "%.1f mb", $1 / 1024 }') on disk." ;;
+    esac
     echo "unity-kit: $TARGET build succeeded via $1: $OUTPUT"
     exit 0
   fi

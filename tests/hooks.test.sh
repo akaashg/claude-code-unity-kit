@@ -190,10 +190,11 @@ cat > "$FB" <<'EOF'
 #!/bin/sh
 : > "$FAKE_BUILD_ARGS"; for a in "$@"; do echo "$a" >> "$FAKE_BUILD_ARGS"; done
 [ -n "$FAKE_CLI_NOSTART" ] && { echo "Error: editor not found"; exit 6; }
-log=""; while [ $# -gt 0 ]; do case "$1" in -logFile|--log-file) log=$2 ;; esac; shift; done
+log=""; out=""; while [ $# -gt 0 ]; do case "$1" in -logFile|--log-file) log=$2 ;; -buildOutput) out=$2 ;; esac; shift; done
+[ -n "$out" ] && printf 'apk' > "$out"
 fail() { printf '%s\nBuild Finished, Result: Failure.\n' "$1" > "$log"; exit 1; }
 case "${FAKE_BUILD:-clean}" in
-  clean) printf 'Build Report\nComplete build size    %s\nBuild Finished, Result: Success.\n' "${FAKE_SIZE:-1.0 gb}" > "$log" ;;
+  clean) printf 'COMMAND LINE ARGUMENTS:\r\n-accessToken\r\nSECRET-TOKEN\r\n-logFile\r\nBuild Report\nComplete build size    %s\nBuild Finished, Result: Success.\n' "${FAKE_SIZE:-1.0 gb}" > "$log" ;;
   clean-shader) printf "Shader error in 'Fog': undeclared identifier 'x' at line 3 (on gles3)\nBuild Finished, Result: Success.\n" > "$log" ;;
   cs) fail "Assets/Scripts/Net.cs(12,9): error CS0103: The name 'EditorPrefs' does not exist in the current context
 Error building Player because scripts had compiler errors" ;;
@@ -224,6 +225,8 @@ sh "$SCRIPTS/build-check.sh" "$B" > /dev/null; check "build-check: no target, no
 build "clean desktop build" 0 --target StandaloneWindows64 --state "$BS"
 arg "desktop target uses the legacy build flag" -buildWindows64Player
 has "reports the build size" "build size 1.0 gb."
+check "build-check: access token removed from the log" 0 "$(grep -c SECRET-TOKEN "$B/Logs/unity-kit-build-StandaloneWindows64.log")"
+grep -q '^<removed by unity-kit>' "$B/Logs/unity-kit-build-StandaloneWindows64.log"; check "build-check: rest of the log kept" 0 "$?"
 FAKE_SIZE="1.1 gb"; build "second clean build" 0 --target StandaloneWindows64 --state "$BS"; FAKE_SIZE=
 has "shows the change from the last build" "build size 1.1 gb (last build 1.0 gb, +102.4 mb)."
 FAKE_BUILD=clean-shader; build "errors logged by a successful build don't fail it" 0 --target StandaloneWindows64
@@ -252,6 +255,7 @@ mkdir -p "$B/Assets/Editor"; echo "public static class UnityKitBuild {}" > "$B/A
 build "Android with UnityKitBuild.cs" 0 --target Android
 arg "uses the kit's build method" UnityKit.UnityKitBuild.Build
 arg "starts the Editor on the target" android
+has "prints the package size on disk" "Build Game.apk is "
 rm -r "$B/Assets/Editor"
 mkdir -p "$B/Assets/Settings/Build Profiles"
 printf 'MonoBehaviour:\n  m_Name: Quest\n  m_BuildTarget: 13\n  m_OverrideGlobalSceneList: 0\n' > "$B/Assets/Settings/Build Profiles/Quest.asset"
