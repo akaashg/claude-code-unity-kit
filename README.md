@@ -34,6 +34,7 @@ Then, in your Unity project, run `/unity-kit:init` once.
 |---|---|---|
 | Skill | `/unity-kit:init` | Writes a `CLAUDE.md` with the project's Unity version, render pipeline, domain reload state and asmdefs |
 | Skill | `/unity-kit:build-fix` | Build a player for one target, fix, rebuild until it builds (max 5 rounds). Run it yourself: builds take minutes |
+| Skill | `/unity-kit:test-fix` | Run EditMode and PlayMode tests, fix the code under test, re-run until they pass (max 5 rounds). Run it yourself: Unity can take minutes to start |
 | Skill | `compile-fix` | Compile, fix, recompile until clean (max 5 rounds) |
 | Skill | `precommit` | Zero errors, no new warnings, every asset has its `.meta`, no broken references, tests pass |
 | Hook | `guard-paths` | Blocks writes to `.meta` files, `Library/` and `Temp/` |
@@ -77,6 +78,17 @@ A project can compile in the Editor and still fail to build: code under `#if !UN
 5. **Size.** After a successful build it prints Unity's "Complete build size" (uncompressed) and the change since the last build of that target, plus the file size of an `.apk` or `.aab`. Unity writes the CLI's access token into the log's command line; the check removes it.
 
 Exit codes match the compile check: 0 built, 1 build errors, 3 not checked.
+
+## How the test check works
+
+`test-check.sh` runs the project's Unity Test Framework tests. `/unity-kit:test-fix` runs it, fixes the code the failing tests exercise and runs it again; `precommit` runs it as its "tests pass" check. It doesn't run at the end of a turn.
+
+1. **Test assemblies first.** An asmdef under `Assets/` that references `UnityEngine.TestRunner` (by name or GUID) or lists `UNITY_INCLUDE_TESTS` in `defineConstraints`. With none, the result is **no tests**, never a pass. Editor-only test assemblies run as EditMode, the others as PlayMode; `--platform editmode|playmode` picks one, and `--filter` passes a test name or regex.
+2. **[Unity-Skills](https://github.com/Besty0728/Unity-Skills)** server, if running in the Editor: it runs the compile check first (tests run on whatever the Editor last compiled, so a **stale** compile means not checked), then its `test_run` and `test_get_result` skills. In Unity-Skills' Approval mode `test_run` is refused; the check says so.
+3. **Unity CLI** `unity test`, if installed, else **batch mode** (`-runTests -testPlatform -testResults`). Both launch Unity, so with the project open in the Editor and no Unity-Skills server the result is **not checked**.
+4. **The results.** Unity's NUnit XML is kept in `Logs/unity-kit-tests-<platform>.xml`, the log next to it. Each failure is one line: `FAIL <full test name> | <message> | Assets/...cs:line`, the last part being the first stack frame inside the project. If compile errors stopped the run, it lists them instead.
+
+Exit codes: 0 pass, 1 test failures or compile errors, 3 not checked, 4 no tests.
 
 ## Works alongside
 
