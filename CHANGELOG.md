@@ -1,13 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-10-18)
 
 - **Broken asset references block the end of a turn.** New `ref-check.sh` finds GUIDs referenced from scenes, prefabs, materials and other text assets, and from asmdefs, that no `.meta` has. It blocks when the reference broke since the last commit: the asset was deleted, or moved without its `.meta`, or a GUID was written by hand. References already broken in the last commit, and unknown GUIDs in asmdefs, are reported by `precommit` and don't block. Runs in the Stop hook and as a fifth `precommit` check. Tested read-only on three real projects: no false positives, 2.6-4.6 s.
-- New eval case `deleted-asset-blocked`.
-
 - **Player build check and `/unity-kit:build-fix`.** New `build-check.sh` builds a player for one target through the Unity CLI or batch mode, and reports C# errors in player-only code, shader errors, IL2CPP and stripping errors, Gradle and Android SDK errors, and missing scenes in the build list, as `File(line,col): error CLASS: ...` lines. Patterns are in one file, `build-patterns.txt`. It prints the build size and the change since the last build. Targets without a batch build flag (Android, iOS, WebGL) use a build profile, the project's build method, or a small `Assets/Editor/UnityKitBuild.cs` the skill offers to add. User-triggered only. Tested with a fake Unity and with real Windows and Android builds of the sandbox (Unity 6000.0.84f1).
-
 - **Test run check and `/unity-kit:test-fix`.** New `test-check.sh` runs EditMode and PlayMode tests through the Unity-Skills `test` module, the Unity CLI (`unity test`) or batch mode (`-runTests`), and reads Unity's NUnit results XML into one line per failure: `FAIL <test> | <message> | Assets/...cs:line`. It reports compile errors that stopped the run, and **no tests** when the project has no test assembly. `test-fix` fixes the code under test, not the test, and asks before changing a test that is clearly wrong. User-triggered only. `precommit` now runs `test-check.sh` for its "tests pass" check. Tested with a fake Unity and a fake Unity-Skills server, and with real EditMode runs of the sandbox (Unity 6000.0.84f1) through batch mode and the Unity CLI; the Unity-Skills route was not run against a real server.
+- New eval case `deleted-asset-blocked`.
 
 ## 0.1.2 (2026-10-15)
 

@@ -9,7 +9,7 @@
     {
       "name": "unity-kit",
       "source": "./plugins/unity-kit",
-      "description": "Guardrails and workflow for Claude Code in Unity 6 projects: .meta and Library guards, a compile gate, pre-commit checks, and Unity code and performance reviewers.",
+      "description": "Guardrails and workflow for Claude Code in Unity 6 projects: .meta and Library guards, broken-reference and compile gates, build and test fix loops, pre-commit checks, and Unity code and performance reviewers.",
       "category": "development",
       "tags": ["unity", "unity3d", "unity6", "gamedev"]
     }

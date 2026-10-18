@@ -1,8 +1,8 @@
 {
   "name": "unity-kit",
   "displayName": "Unity Kit",
-  "version": "0.1.2",
-  "description": "Guardrails and workflow for Claude Code in Unity 6 projects: .meta and Library guards, a compile gate, pre-commit checks, and Unity code and performance reviewers.",
+  "version": "0.2.0",
+  "description": "Guardrails and workflow for Claude Code in Unity 6 projects: .meta and Library guards, broken-reference and compile gates, build and test fix loops, pre-commit checks, and Unity code and performance reviewers.",
   "author": {
     "name": "Akaash Garg",
     "url": "https://akaashgarg.com"
