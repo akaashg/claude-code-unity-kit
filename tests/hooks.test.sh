@@ -289,6 +289,158 @@ has "warns about the disabled scene" 'Assets/Scripts/L.cs:1 loads scene "Extra" 
 check "build-check: no warning for an enabled scene" 1 "$(grep -c 'loads scene' "$T/build-out")"
 unset UNITY_EDITOR_PATH UNITY_KIT_UNITY_CLI
 
+# Test runs, with a fake Unity that is both the Editor (batch mode) and the Unity CLI. It records its
+# arguments and writes NUnit results XML like Unity's for the case in FAKE_TESTS. A fake curl stands in
+# for the Unity-Skills server, and answers nothing unless FAKE_US is set, so a real server is never used.
+TP="$T/Test Game"
+mkdir -p "$TP/ProjectSettings" "$TP/Assets/Scripts" "$T/bin"
+cp "$P/ProjectSettings/ProjectVersion.txt" "$TP/ProjectSettings/"
+FT="$T/FakeTest"
+cat > "$FT" <<'EOF'
+#!/bin/sh
+printf '%s\n' "--" "$@" >> "$FAKE_TEST_ARGS"
+[ -n "$FAKE_CLI_NOSTART" ] && [ "$1" = test ] && { echo "Error: editor not found"; exit 6; }
+xml=""; log=/dev/stdout; proj=""   # the Unity CLI prints to the console
+[ "$1" = test ] && proj=$2
+while [ $# -gt 0 ]; do case "$1" in -testResults|--output) xml=$2 ;; -logFile) log=$2 ;; -projectPath) proj=$2 ;; esac; shift; done
+win=$(printf '%s' "$proj" | sed 's#/#\\#g')   # Unity writes Windows paths with backslashes
+run() { # total passed failed
+  printf '<?xml version="1.0" encoding="utf-8"?>\n<test-run id="2" testcasecount="%s" result="Passed" total="%s" passed="%s" failed="%s" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" duration="0.5">\n' "$1" "$1" "$2" "$3"
+}
+case "${FAKE_TESTS:-pass}" in
+  pass) { run 2 2 0; printf '  <test-suite type="TestSuite" id="1000" name="Test Game" fullname="Test Game" result="Passed">\n    <test-case id="1001" name="A" fullname="Tests.T.A" result="Passed" />\n    <test-case id="1002" name="B" fullname="Tests.T.B" result="Passed">\n      <properties />\n    </test-case>\n  </test-suite>\n</test-run>\n'; } > "$xml" ;;
+  fail) { run 3 1 2; cat <<XML
+  <test-suite type="TestSuite" id="1000" name="Test Game" fullname="Test Game" result="Failed" site="Child">
+    <failure>
+      <message><![CDATA[One or more child tests had errors]]></message>
+    </failure>
+    <test-suite type="TestFixture" id="1004" name="MathTests" fullname="Tests.MathTests" result="Failed" site="Child">
+      <test-case id="1001" name="Adds two numbers" fullname="Tests.MathTests.Adds two numbers" methodname="Add" classname="Tests.MathTests" runstate="Runnable" result="Failed" duration="0.01" asserts="0">
+        <properties />
+        <failure>
+          <message><![CDATA[  Expected: 4
+  But was:  5
+]]></message>
+          <stack-trace><![CDATA[at Tests.MathTests.Add () [0x00001] in $win\\Assets\\Tests\\Editor\\MathTests.cs:12
+]]></stack-trace>
+        </failure>
+        <output><![CDATA[logged: <test-case fullname="Not.A.Test" result="Failed">
+<failure>
+]]></output>
+      </test-case>
+      <test-case id="1002" name="Divide(&quot;a b&quot;,0)" fullname="Tests.MathTests.Divide(&quot;a b&quot;,0)" result="Failed" label="Error">
+        <failure>
+          <message><![CDATA[System.DivideByZeroException : Attempted to divide by zero.]]></message>
+          <stack-trace><![CDATA[  at Calc.Divide (System.Int32 a, System.Int32 b) [0x00001] in $win\\Assets\\Scripts\\Calc.cs:7
+  at Tests.MathTests.Divide (System.String s, System.Int32 b) [0x00001] in $win\\Assets\\Tests\\Editor\\MathTests.cs:20]]></stack-trace>
+        </failure>
+      </test-case>
+      <test-case id="1003" name="Passes" fullname="Tests.MathTests.Passes" result="Passed" />
+    </test-suite>
+  </test-suite>
+</test-run>
+XML
+  } | sed 's/$/\r/' > "$xml" ;;   # CRLF, as Unity writes it on Windows
+  empty) { run 0 0 0; printf '</test-run>\n'; } > "$xml" ;;
+  compile) printf 'Assets/Scripts/Calc.cs(3,5): error CS0103: The name x does not exist in the current context\r\nScripts had compilation errors.\r\nTest run completed. Exiting with code 3 (RunError). Scripts had compilation errors.\r\n' >> "$log"; exit 3 ;;
+  crash) echo "Aborting batchmode due to failure" >> "$log"; exit 1 ;;
+esac
+exit 0
+EOF
+cat > "$T/bin/curl" <<'EOF'
+#!/bin/sh
+out=""; fmt=""; url=""
+while [ $# -gt 0 ]; do case "$1" in -o) out=$2; shift ;; -w) fmt=$2; shift ;; -d|--max-time) shift ;; http*) url=$1 ;; esac; shift; done
+[ -n "$FAKE_US" ] || exit 7   # connection refused
+url=${url%%\?*}
+case "$url" in
+  */health) body='{"status":"ok"}' ;;
+  */debug_check_compilation)
+    if [ "$FAKE_US" = compile ]; then body='{"succeeded": false, "finishedAtUtc": "2099-01-01T00:00:00Z", "errors": ["Assets/Scripts/Calc.cs(3,5): error CS0103: The name x does not exist"]}'
+    else body='{"succeeded": true, "isCompiling": false, "finishedAtUtc": "2099-01-01T00:00:00Z"}'; fi ;;
+  */test_run|*/test_run_by_name) echo "$url" >> "$FAKE_TEST_ARGS"
+    if [ "$FAKE_US" = refuse ]; then body='{"success": false, "code": "MODE_FORBIDDEN"}'
+    else body='{"success": true, "status": "accepted", "jobId": "job-1"}'; fi ;;
+  */test_get_result) w=$(printf '%s' "$FAKE_PROJECT" | sed 's#/#\\\\#g')   # JSON-escaped backslashes
+    body='{"success": true, "jobId": "job-1", "status": "completed", "totalTests": 3, "passedTests": 2, "failedTests": 1, "skippedTests": 0, "failedTestNames": ["Tests.MathTests.Adds two numbers"], "failedTestDetails": [{"name": "Tests.MathTests.Adds two numbers", "resultState": "Failed", "message": "  Expected: \"4\"\n  But was:  5\n", "stackTrace": "at Tests.MathTests.Add () [0x00001] in '"$w"'\\Assets\\Tests\\Editor\\MathTests.cs:12\n", "output": ""}]}' ;;
+  *) body='{}' ;;
+esac
+if [ -n "$out" ]; then printf '%s' "$body" > "$out"; else printf '%s' "$body"; fi
+case "$fmt" in '\n'*) printf '\n200' ;; ?*) printf '200' ;; esac
+EOF
+chmod +x "$FT" "$T/bin/curl"
+OLDPATH=$PATH; PATH="$T/bin:$PATH"
+export UNITY_EDITOR_PATH="$FT" UNITY_KIT_UNITY_CLI=none FAKE_TEST_ARGS="$T/test-args" FAKE_TESTS= FAKE_US= FAKE_CLI_NOSTART=
+FAKE_PROJECT=$TP; command -v cygpath >/dev/null 2>&1 && FAKE_PROJECT=$(cygpath -m "$TP"); export FAKE_PROJECT
+tests() { # name expected-exit [args]
+  n=$1; e=$2; shift 2
+  : > "$T/test-args"
+  sh "$SCRIPTS/test-check.sh" "$@" "$TP" > "$T/test-out"; check "test-check: $n" "$e" "$?"
+}
+thas() { grep -qF -- "$2" "$T/test-out"; check "test-check: $1" 0 "$?"; }
+targ() { grep -qxF -- "$2" "$T/test-args"; check "test-check: $1" 0 "$?"; }
+
+tests "not a Unity project" 3 "$T"
+tests "no asmdefs: no tests" 4
+thas "says no tests" "NO TESTS"
+echo '{ "name": "Game" }' > "$TP/Assets/Scripts/Game.asmdef"
+tests "asmdef without test references: no tests" 4
+mkdir -p "$TP/Assets/Tests/Editor"
+printf '{\r\n    "name": "EditTests",\r\n    "references": [\r\n        "UnityEngine.TestRunner",\r\n        "UnityEditor.TestRunner"\r\n    ],\r\n    "includePlatforms": [\r\n        "Editor"\r\n    ],\r\n    "defineConstraints": [\r\n        "UNITY_INCLUDE_TESTS"\r\n    ]\r\n}\r\n' > "$TP/Assets/Tests/Editor/EditTests.asmdef"
+tests "passing EditMode tests" 0
+thas "summary names the route and counts" "tests pass via batch mode: EditMode 2/2 passed."
+targ "batch mode runs tests" -runTests
+targ "Editor-only test assembly runs EditMode" EditMode
+check "test-check: PlayMode not run without a runtime test assembly" 0 "$(grep -cx PlayMode "$T/test-args")"
+check "test-check: no -quit with -runTests" 0 "$(grep -cx -- -quit "$T/test-args")"
+check "test-check: results XML kept in Logs/" 0 "$([ -s "$TP/Logs/unity-kit-tests-EditMode.xml" ]; echo $?)"
+FAKE_TESTS=fail; tests "failing tests (CRLF results)" 1
+thas "test name with spaces, message on one line, frame in the project" "FAIL Tests.MathTests.Adds two numbers | Expected: 4 But was: 5 | Assets/Tests/Editor/MathTests.cs:12"
+thas "XML entities decoded, first frame in the project" 'FAIL Tests.MathTests.Divide("a b",0) | System.DivideByZeroException : Attempted to divide by zero. | Assets/Scripts/Calc.cs:7'
+check "test-check: one line per failed test, none for suites or output text" 2 "$(grep -c '^FAIL ' "$T/test-out")"
+check "test-check: no carriage returns in the report" 0 "$(tr -cd '\r' < "$T/test-out" | wc -c | tr -d ' ')"
+thas "summary counts failures" "2 test failure(s) via batch mode: EditMode 1/3 passed, 2 failed."
+FAKE_TESTS=compile; tests "compile errors stop the run" 1
+thas "lists the compile error" "Assets/Scripts/Calc.cs(3,5): error CS0103:"
+thas "says compile errors stopped the tests" "1 compile error(s) stopped the EditMode tests"
+FAKE_TESTS=empty; tests "test assembly without tests" 4
+FAKE_TESTS=crash; tests "Unity exits without results" 3
+FAKE_TESTS=; tests "filter" 0 --filter "Tests.MathTests;Tests.T"
+targ "filter passed to Unity" "Tests.MathTests;Tests.T"
+tests "forced PlayMode" 0 --platform playmode
+targ "PlayMode platform passed" PlayMode
+tests "unknown platform" 3 --platform both
+mkdir -p "$TP/Assets/Tests/Runtime"
+echo '{"name":"RuntimeTests","references":["GUID:27619889b8ba8c24980f49ee34dbb44a"],"includePlatforms":[]}' > "$TP/Assets/Tests/Runtime/RuntimeTests.asmdef"
+tests "runtime test assembly by GUID adds PlayMode" 0
+thas "both platforms in the summary" "EditMode 2/2 passed, PlayMode 2/2 passed."
+
+UNITY_KIT_UNITY_CLI="$FT"; tests "Unity CLI route" 0 --platform editmode
+thas "names the Unity CLI route" "via Unity CLI"
+targ "Unity CLI gets the mode" EditMode
+targ "Unity CLI gets the results path" "$FAKE_PROJECT/Logs/unity-kit-tests-EditMode.xml"
+FAKE_TESTS=compile; tests "compile errors through the Unity CLI" 1 --platform editmode; FAKE_TESTS=
+thas "Unity CLI compile error listed" "error CS0103"
+FAKE_CLI_NOSTART=1; tests "Unity CLI can't start: falls back to batch mode" 0 --platform editmode; FAKE_CLI_NOSTART=
+thas "says it falls back" "Trying batch mode."
+thas "batch mode ran" "via batch mode"
+UNITY_KIT_UNITY_CLI=none
+
+FAKE_US=1; tests "Unity-Skills route" 1 --platform editmode
+thas "names the Unity-Skills route" "via Unity-Skills (port 8090)"
+thas "failure from JSON, escapes decoded" 'FAIL Tests.MathTests.Adds two numbers | Expected: "4" But was: 5 | Assets/Tests/Editor/MathTests.cs:12'
+grep -q '/skill/test_run$' "$T/test-args"; check "test-check: Unity-Skills test_run called" 0 "$?"
+check "test-check: Unity-Skills route does not launch Unity" 0 "$(grep -c -- -runTests "$T/test-args")"
+tests "Unity-Skills with a filter" 1 --platform editmode --filter Tests.MathTests
+grep -q '/skill/test_run_by_name$' "$T/test-args"; check "test-check: filter uses test_run_by_name" 0 "$?"
+FAKE_US=refuse; tests "Unity-Skills refuses test_run" 3 --platform editmode
+thas "explains the refusal" "MODE_FORBIDDEN"
+FAKE_US=compile; tests "Unity-Skills: compile errors first" 1 --platform editmode
+thas "Unity-Skills compile error listed" "Assets/Scripts/Calc.cs(3,5): error CS0103"
+FAKE_US=
+PATH=$OLDPATH
+unset UNITY_EDITOR_PATH UNITY_KIT_UNITY_CLI
+
 echo
 [ "$fails" -eq 0 ] && echo "all hook tests passed" || echo "$fails hook test(s) failed"
 [ "$fails" -eq 0 ]

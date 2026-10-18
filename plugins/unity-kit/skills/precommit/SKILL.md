@@ -11,9 +11,7 @@ Run all five checks, then report. Run the scripts with the Bash tool, exactly as
 2. **No new warnings.** From the same report, take the `warning CS` lines whose file is in `git diff --name-only HEAD` or `git ls-files --others --exclude-standard`. Any such line is a fail. Warnings in files this change did not touch are not new; mention their count only.
 3. **Every asset has its `.meta`.** Run `sh "${CLAUDE_PLUGIN_ROOT}/scripts/meta-check.sh"`. Exit 0 is a pass; otherwise list what it printed.
 4. **No broken asset references.** Run `sh "${CLAUDE_PLUGIN_ROOT}/scripts/ref-check.sh" --state "${CLAUDE_PLUGIN_DATA}"`. Exit 0 is a pass; mention any references it lists as already in the last commit. Exit 1 is a fail: list each broken reference. Exit 2 is **not checked**: give the reason it printed.
-5. **Tests pass.** Find test assemblies: asmdefs under `Assets/` that reference `UnityEngine.TestRunner` or list `UNITY_INCLUDE_TESTS` in `defineConstraints`. If there are none, report **no tests** (not a pass). Otherwise run them through what is available, in this order:
-   - Unity-Skills `test` module, if its server answers on localhost 8090-8100.
-   - `unity test` (Unity CLI). It runs in batch mode, so it cannot run while the Editor has the project open; if it is open, report **not checked** and say why.
+5. **Tests pass.** Run `sh "${CLAUDE_PLUGIN_ROOT}/scripts/test-check.sh"` with `run_in_background`, since Unity can take minutes, and wait for it. Exit 0 is a pass. Exit 1 is a fail: list each `FAIL` line, or the compile errors that stopped the run. Exit 4 is **no tests** (not a pass): there is no test assembly, or it has no tests. Exit 3 is **not checked**: give the reason it printed (for example, the Editor has the project open and no Unity-Skills server answers).
 
 ## Report
 
