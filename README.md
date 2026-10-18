@@ -13,6 +13,8 @@ A [Claude Code](https://code.claude.com) plugin for Unity 6 projects. It stops t
 | An asset moved in the shell leaves its `.meta` behind, and references go missing | The turn can't end while an orphaned `.meta` exists |
 | An asset that only a scene or prefab uses (by GUID) gets deleted as "unused", or Claude writes a GUID by hand | The turn can't end while a reference broke since the last commit |
 | Claude says "done" while the Console is red | The turn can't end while the project has compile errors |
+| The project compiles in the Editor but the player build fails: code under `#if !UNITY_EDITOR`, shaders, IL2CPP stripping, Gradle | `/unity-kit:build-fix` builds the target, reports each error with file and line, and fixes until it builds |
+| A failing test gets "fixed" by changing the test, or nobody runs the tests before a commit | `/unity-kit:test-fix` fixes the code under test and asks before touching a test; `precommit` runs the tests |
 | Static fields keep their values between Play sessions when domain reload is off | `CLAUDE.md` records the domain reload state and requires a reset; `unity-reviewer` checks it in reviews |
 | Code written for a different Unity version | The project's Unity version is in `CLAUDE.md` and checked in review |
 | New code ignores the project's namespaces and asmdefs | Matching the project's style is rule 1 |
@@ -97,9 +99,9 @@ unity-kit adds guardrails and workflow; it doesn't drive the Editor. It's design
 - [Unity's official Claude Code plugin](https://github.com/Unity-Technologies/unity-agent-plugin) (Unity CLI, UI, 2D, URP and more)
 - [Unity-Skills](https://github.com/Besty0728/Unity-Skills) and other Unity MCP servers
 
-## Packs coming
+## Roadmap
 
-Platform-specific rules ship as separate plugins that depend on `unity-kit`: `unity-kit-quest`, `unity-kit-openxr`, `unity-kit-mobile`. See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/PACKS.md](docs/PACKS.md).
+unity-kit grows one production-pipeline stage at a time: compile, references, build and tests so far, then version control, import settings, CI setup and crash triage. Each stage gets a detect script, a gate (the Stop hook or `precommit`) and a fix-loop skill. Platform problems such as Unity version issues for Quest builds or OpenXR package conflicts are planned as rule files inside unity-kit, not as separate plugins. See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/PACKS.md](docs/PACKS.md).
 
 ## License
 

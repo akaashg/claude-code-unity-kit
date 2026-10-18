@@ -4,9 +4,9 @@
 
 Every rule, hook and agent check must come from a real problem someone hit in a Unity project. Add the source to [docs/SOURCES.md](docs/SOURCES.md) in the same pull request: an issue, a Unity bug report or doc page, or a short description of what went wrong. Rules from general best-practice lists won't be merged.
 
-## Core or pack?
+## Stage or rule?
 
-Generic Unity 6 rules go in `plugins/unity-kit`. Anything tied to a platform, SDK or vendor package goes in a pack; see [docs/PACKS.md](docs/PACKS.md).
+Everything goes in `plugins/unity-kit`; there are no separate platform plugins. A problem any Unity 6 project can hit belongs in a pipeline stage: a detect script, a gate and, when Claude can fix it, a fix-loop skill. A problem tied to a Unity version range, a package or a build target is planned as a rule file; until the project rules check is released, propose it with the Rule proposal issue template. See [docs/PACKS.md](docs/PACKS.md).
 
 ## Keep skills short
 

@@ -1,40 +1,25 @@
-# Adding a platform pack
+# Platform rules instead of packs
 
-A pack is a plugin in this marketplace that adds platform-specific rules on top of `unity-kit`. Generic Unity rules go in the core; anything tied to one platform, SDK, vendor package or Unity version range goes in a pack.
+An earlier plan split platform knowledge into separate plugins (`unity-kit-quest`, `unity-kit-openxr`, `unity-kit-mobile`). That plan is dropped. A Quest project and an Android XR project hit mostly the same pipeline problems: compile errors, broken `.meta` files and references, failed builds, failing tests. What differs between platforms is mostly data: which Unity versions, packages and build targets cause trouble. So:
 
-| Belongs in the core | Belongs in a pack |
+- **Pipeline stages** (compile, references, build, tests, ...) are scripts, hooks and skills in the one `unity-kit` plugin. See [ROADMAP.md](ROADMAP.md).
+- **Platform, SDK and package problems** will be rule files inside `unity-kit`, checked by a project rules check. That check is built but not released yet; it is planned for 0.3.0.
+
+| Goes in a stage (script, gate, skill) | Goes in a rule |
 |---|---|
-| `.meta` safety, compile gate, static reset, project style | Quest build settings, OpenXR package conflicts, Android SDK versions |
-| Applies to any Unity 6 project | Applies only when a platform or package is present |
+| Applies to any Unity 6 project | Applies only to some Unity versions, packages or build targets |
+| `.meta` safety, compile gate, broken references, build errors, test failures | Unity 6.3 Android SDK detection, OpenXR package conflicts |
+| Needs code to detect | Can be stated as "this version, these packages, this target" |
 
-## Steps
+## Proposing a rule
 
-1. **Name it `unity-kit-<name>`.** Plugin names starting with `claude-` fail validation.
-2. **Create the plugin** at `plugins/unity-kit-<name>/` with `.claude-plugin/plugin.json`:
+Until the project rules check is released, open a [Rule proposal](../.github/ISSUE_TEMPLATE/rule_proposal.yml) issue with the problem and where it comes from: the real problem you hit, a Unity issue tracker link, or a Unity doc page. Rules from general best-practice lists aren't added. Each accepted rule gets a row in [SOURCES.md](SOURCES.md) and an entry under "Planned rules" in [ROADMAP.md](ROADMAP.md).
 
-   ```json
-   {
-     "name": "unity-kit-quest",
-     "version": "0.1.0",
-     "description": "Meta Quest rules for unity-kit.",
-     "author": { "name": "Your Name" },
-     "license": "MIT",
-     "dependencies": [
-       { "name": "unity-kit", "version": "^0.1.0" }
-     ]
-   }
-   ```
+## Adding a stage
 
-   A bare name resolves in this marketplace. The version range resolves against git tags named `unity-kit--v<version>`, so the core must be tagged that way (`claude plugin tag`).
-3. **Add it to `.claude-plugin/marketplace.json`** with `"source": "./plugins/unity-kit-<name>"`. Keep the entry `name` equal to the `plugin.json` name.
-4. **Add a `Platform notes` section.** Give the pack an `init` skill that appends a `### <Platform>` section under `## Platform notes` in the project's `CLAUDE.md`, the same way the core `init` writes the file.
-5. **Cite sources.** Add each rule to [SOURCES.md](SOURCES.md) with where it came from. Move the item out of [ROADMAP.md](ROADMAP.md).
-6. **Validate and test.**
+Follow `compile-check.sh`, `ref-check.sh`, `build-check.sh` and `test-check.sh`:
 
-   ```bash
-   claude plugin validate --strict plugins/unity-kit-<name>
-   claude plugin validate --strict .
-   claude --plugin-dir ./plugins/unity-kit --plugin-dir ./plugins/unity-kit-<name>
-   ```
-
-   The last command loads both plugins for one session, so the dependency is met without installing.
+1. **A detect script** in `plugins/unity-kit/scripts/`: POSIX `sh` that runs on macOS `sh` and Git Bash on Windows, without jq, Node or Python. It prints problems as file and line and exits 0 (clean), 1 (errors) or 3 (not checked), saying why when it couldn't check.
+2. **A gate**, only if the check is fast: a step in `stop-checks.sh` or a row in the `precommit` skill. Slow checks such as builds are started by the user.
+3. **A fix-loop skill**, when Claude can fix the problem itself: run the script, fix, run it again, at most 5 rounds.
+4. **Tests** in `tests/hooks.test.sh` with a fake project (and a fake Unity where the script launches one), a row in [SOURCES.md](SOURCES.md), a "How the ... check works" section in the README, and a row in [TESTED.md](TESTED.md) that lists only what was actually run.

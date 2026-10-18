@@ -62,5 +62,5 @@ Print the five facts in a short list and the path written. Then:
 
 ## Platform notes
 
-No platform pack installed. Platform-specific rules (Quest, OpenXR, mobile) live in separate `unity-kit-<name>` packs; each pack adds its own section here.
+None yet. Add notes about this project's target platforms here (for example Quest, OpenXR or mobile build settings).
 ````
