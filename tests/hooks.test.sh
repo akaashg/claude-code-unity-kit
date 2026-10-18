@@ -299,7 +299,7 @@ FT="$T/FakeTest"
 cat > "$FT" <<'EOF'
 #!/bin/sh
 printf '%s\n' "--" "$@" >> "$FAKE_TEST_ARGS"
-[ -n "$FAKE_CLI_NOSTART" ] && [ "$1" = test ] && { echo "Error: editor not found"; exit 6; }
+[ -n "$FAKE_CLI_NOSTART" ] && [ "$1" = test ] && { echo "Error: editor not found."; exit 6; }
 xml=""; log=/dev/stdout; proj=""   # the Unity CLI prints to the console
 [ "$1" = test ] && proj=$2
 while [ $# -gt 0 ]; do case "$1" in -testResults|--output) xml=$2 ;; -logFile) log=$2 ;; -projectPath) proj=$2 ;; esac; shift; done
@@ -422,7 +422,7 @@ targ "Unity CLI gets the results path" "$FAKE_PROJECT/Logs/unity-kit-tests-EditM
 FAKE_TESTS=compile; tests "compile errors through the Unity CLI" 1 --platform editmode; FAKE_TESTS=
 thas "Unity CLI compile error listed" "error CS0103"
 FAKE_CLI_NOSTART=1; tests "Unity CLI can't start: falls back to batch mode" 0 --platform editmode; FAKE_CLI_NOSTART=
-thas "says it falls back" "Trying batch mode."
+thas "says it falls back, one period" "Error: editor not found. Trying batch mode."
 thas "batch mode ran" "via batch mode"
 UNITY_KIT_UNITY_CLI=none
 

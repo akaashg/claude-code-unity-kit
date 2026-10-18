@@ -313,7 +313,7 @@ run_platform() {
     rc=$?
     route="Unity CLI"
     if [ ! -s "$xml" ] && ! grep -q ': error CS[0-9]' "$log" && [ -n "$UNITY" ]; then
-      echo "unity-kit: note: the Unity CLI wrote no test results (exit $rc): $(tr -d '\r' < "$log" | grep . | tail -n 1 | cut -c1-200). Trying batch mode."
+      echo "unity-kit: note: the Unity CLI wrote no test results (exit $rc): $(tr -d '\r' < "$log" | grep . | tail -n 1 | cut -c1-200 | sed 's/\.*$//'). Trying batch mode."
       route=""
     fi
   fi
