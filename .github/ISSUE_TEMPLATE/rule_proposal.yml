@@ -1,5 +1,5 @@
 name: Rule proposal
-description: Propose a rule, check or pack item
+description: Propose a rule or check
 labels: [rule]
 body:
   - type: textarea
@@ -19,7 +19,7 @@ body:
   - type: dropdown
     id: scope
     attributes:
-      label: Core or pack
-      options: [Core (any Unity 6 project), Quest pack, OpenXR pack, Mobile pack, New pack]
+      label: Stage or platform rule
+      options: ["Pipeline stage (any Unity 6 project)", "Platform rule (a Unity version, package or build target)"]
     validations:
       required: true

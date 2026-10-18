@@ -1,6 +1,6 @@
 {
   "name": "akaashg-unity",
-  "description": "Claude Code plugins for Unity 6 projects. The core plugin is unity-kit; platform packs named unity-kit-<name> depend on it.",
+  "description": "Claude Code plugins for Unity 6 projects: unity-kit, guardrails and pipeline checks from compile to build and tests.",
   "owner": {
     "name": "Akaash Garg",
     "url": "https://akaashgarg.com"
