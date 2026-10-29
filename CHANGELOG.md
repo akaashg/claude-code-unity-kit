@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Unity's own integrity checks in `precommit`.** New `unity-verify.sh` runs `unity projects verify` (missing or orphaned `.meta` files, duplicate GUIDs, leftover conflict markers, an invalid manifest) and, in a git repo, `unity vcs doctor` (ignore rules, LFS patterns, package pinning), both read-only. Like ref-check, it blocks only on errors in files the change touched; older problems are listed. `--base <ref>` counts files changed since a base ref, for CI. Without the Unity CLI the row is "not installed", not a fail. It never runs `--fix`; it suggests it. Tested with a fake CLI and read-only on three real projects.
+- **Roadmap:** the Git LFS and scene-merge stages are dropped because Unity's CLI covers them, and the import audit is deferred. Next are team CI (0.3.0) and a Quest device check and crash triage (0.4.0).
+
 ## 0.2.0 (2026-10-18)
 
 - **Broken asset references block the end of a turn.** New `ref-check.sh` finds GUIDs referenced from scenes, prefabs, materials and other text assets, and from asmdefs, that no `.meta` has. It blocks when the reference broke since the last commit: the asset was deleted, or moved without its `.meta`, or a GUID was written by hand. References already broken in the last commit, and unknown GUIDs in asmdefs, are reported by `precommit` and don't block. Runs in the Stop hook and as a fifth `precommit` check. Tested read-only on three real projects: no false positives, 2.6-4.6 s.

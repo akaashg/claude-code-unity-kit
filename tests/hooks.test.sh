@@ -441,6 +441,73 @@ FAKE_US=
 PATH=$OLDPATH
 unset UNITY_EDITOR_PATH UNITY_KIT_UNITY_CLI
 
+# Unity's integrity checks through a fake Unity CLI that answers `projects verify` and `vcs doctor`
+# in the TSV formats and exit codes of the real CLI (1.0.0-beta.13): verify exits 0 or 6, doctor 0 or 4.
+V="$T/Verify Game"
+mkdir -p "$V/ProjectSettings" "$V/Assets/My Art"
+cp "$P/ProjectSettings/ProjectVersion.txt" "$V/ProjectSettings/"
+meta "$V/Assets/My Art/Rock.mat" 22222222222222222222222222222222; echo mat > "$V/Assets/My Art/Rock.mat"
+printf 'Library/\n' > "$V/.gitignore"
+FU="$T/fake-unity-cli"
+cat > "$FU" <<'EOF'
+#!/bin/sh
+case "$1 $2" in
+  "projects verify")
+    [ -n "$FAKE_VERIFY_ERR" ] && { echo "$FAKE_VERIFY_ERR" >&2; exit 2; }
+    [ -n "$FAKE_VERIFY" ] && { printf '%b\n' "$FAKE_VERIFY"; exit 6; }
+    exit 0 ;;
+  "vcs doctor")
+    echo "Package checks cover git dependencies and embedded packages." >&2
+    [ -n "$FAKE_DOCTOR_ERR" ] && { echo "$FAKE_DOCTOR_ERR" >&2; exit 6; }
+    [ -n "$FAKE_DOCTOR" ] && { printf '%b\n' "$FAKE_DOCTOR"; exit 4; }
+    exit 0 ;;
+esac
+exit 1
+EOF
+chmod +x "$FU"
+uv() { # name expected-exit [args]
+  n=$1; e=$2; shift 2
+  UNITY_KIT_UNITY_CLI="$FU" sh "$SCRIPTS/unity-verify.sh" "$@" > "$T/uv.out" 2>&1
+  check "unity-verify: $n" "$e" "$?"
+}
+uvhas() { grep -qF -- "$2" "$T/uv.out"; check "unity-verify: $1" 0 "$?"; }
+CONFLICT='CONFLICT_MARKERS\terror\tAssets/My Art/Rock.mat.meta\t2\tThis file still contains version control conflict markers.'
+IGNORED='META_FILES_IGNORED\terror\t.gitignore\ttrue\t3 meta file(s) are ignored: Assets/Temp.meta'
+STALE='GITIGNORE_STALE\twarning\t.gitignore\ttrue\t31 rule(s) from the current Unity ignore template are missing'
+
+UNITY_KIT_UNITY_CLI=none sh "$SCRIPTS/unity-verify.sh" "$V" >/dev/null 2>&1; check "unity-verify: no Unity CLI: not installed" 4 "$?"
+uv "not a Unity project" 3 "$T"
+uv "no git: clean" 0 "$V"
+uvhas "no git: doctor skipped" "unity vcs doctor skipped"
+FAKE_VERIFY=$CONFLICT uv "no git: every error blocks" 1 "$V"
+uvhas "path with a space and the line number" "CONFLICT_MARKERS Assets/My Art/Rock.mat.meta:2:"
+
+git() { command git -C "$V" -c core.autocrlf=false -c user.name=t -c user.email=t@example.com "$@" >/dev/null 2>&1; }
+git init -q; git add -A; git commit -q -m base; git tag base
+uv "git: clean" 0 "$V"
+FAKE_VERIFY=$CONFLICT uv "error in a file this change didn't touch: not blocking" 0 "$V"
+uvhas "lists it as already in the repository" "already in the repository"
+echo "x" >> "$V/Assets/My Art/Rock.mat.meta"
+FAKE_VERIFY=$CONFLICT uv "error in a touched file blocks" 1 "$V"
+git add -A; git commit -q -m "touch the meta"
+FAKE_VERIFY=$CONFLICT uv "committed since HEAD: not blocking without --base" 0 "$V"
+FAKE_VERIFY=$CONFLICT uv "--base: changed since the base blocks" 1 --base base "$V"
+FAKE_DOCTOR=$IGNORED uv "doctor error on an untouched .gitignore: not blocking" 0 "$V"
+echo "Temp/" >> "$V/.gitignore"
+FAKE_DOCTOR=$IGNORED uv "doctor error on a touched .gitignore blocks" 1 "$V"
+uvhas "fixable findings name the fix, for the user" "(fixable: unity vcs doctor --fix)"
+git checkout -q -- .gitignore
+FAKE_DOCTOR=$STALE uv "warnings only: pass" 0 "$V"
+uvhas "warnings are listed" "1 warning(s):"
+FAKE_VERIFY_ERR="Error: something went wrong" uv "verify didn't run: not checked" 3 "$V"
+uvhas "gives the reason" "unity projects verify didn't run (exit 2): Error: something went wrong"
+FAKE_DOCTOR_ERR="Error: not inside a git repository" uv "doctor didn't run: not checked" 3 "$V"
+FAKE_VERIFY_ERR="Error: x" FAKE_DOCTOR=$IGNORED uv "verify didn't run, untouched doctor error: not checked" 3 "$V"
+echo "Temp/" >> "$V/.gitignore"
+FAKE_VERIFY_ERR="Error: x" FAKE_DOCTOR=$IGNORED uv "a blocking error wins over not checked" 1 "$V"
+git checkout -q -- .gitignore
+unset -f git
+
 echo
 [ "$fails" -eq 0 ] && echo "all hook tests passed" || echo "$fails hook test(s) failed"
 [ "$fails" -eq 0 ]

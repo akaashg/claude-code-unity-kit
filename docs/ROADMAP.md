@@ -18,10 +18,19 @@ Platform, SDK and package problems don't get their own plugin. They are planned 
 | Build | `build-check.sh` | None: builds take minutes, so you start them | `build-fix` | Released (0.2.0) |
 | Tests | `test-check.sh` | `precommit` | `test-fix` | Released (0.2.0) |
 | Project rules | Unity version, packages and build target checked against rule files | `precommit`; Stop hook after a Unity version or package change | None: version and package changes are the user's call | Built on a branch, not merged (0.3.0) |
-| Version control | Large binaries outside Git LFS; scene and prefab merge conflicts | `precommit` | Skill that resolves scene conflicts with UnityYAMLMerge | Planned (0.3.0) |
-| Import audit | Texture, audio and model import settings, read from `.meta` files | `precommit`, changed assets only | Skill that proposes the changes | Planned (0.3.0) |
-| CI setup | None | None | `ci-init`: writes a GameCI workflow that runs the detect scripts, with build-size budgets | Planned (0.4.0) |
-| Crash triage | `Player.log`, `Editor.log` and logcat captures | None | `triage`: maps crashes and exceptions back to project files | Planned (0.4.0) |
+| Repository and project integrity | `unity-verify.sh`: Unity's own `unity projects verify` and `unity vcs doctor`, read-only | `precommit` | None: the kit suggests Unity's `unity vcs doctor --fix`, never runs it | Built, not released (0.3.0) |
+| Team CI | The detect scripts, run on every PR against the PR base | GitHub Actions | `ci-init`: writes the workflow (no-Unity checks, tests and builds with a Unity license, optional reviewer comments) | Planned (0.3.0) |
+| Quest device check | Frame time against the refresh-rate budget, and exceptions in logcat, through Meta's `hzos-dev-mcp` | None: needs a headset, so you start it | `device-check` | Planned (0.4.0) |
+| Crash triage | `Player.log`, `Editor.log` and logcat captures | None | `triage`: groups crashes and exceptions and maps them back to project files | Planned (0.4.0) |
+
+### Left to Unity's CLI
+
+Unity's CLI (1.0.0-beta.13) already covers two stages that were planned here, so the kit calls it instead of rebuilding them:
+
+- **Git LFS and ignore rules:** `unity vcs doctor` audits LFS patterns, ignore rules and package pinning, and repairs what it can with `--fix`. `unity-verify.sh` runs it from `precommit`.
+- **Scene and prefab merges:** `unity vcs merge-setup` configures UnityYAMLMerge, and `unity vcs conflicts`, `explain` and `resolve` handle conflicted assets. `unity projects verify` catches leftover conflict markers; `ref-check.sh` still catches the broken references a merge can leave, which Unity's checks don't read.
+
+**Deferred:** an import-settings audit. Unity's plugin already gives per-area advice (`optimize-audio`, `optimize-text-mesh-pro`, `manage-sprite-atlas`); a deterministic check is only worth building if that falls short.
 
 The order above is the order of work. A stage is built when there is a real problem behind it; see [CONTRIBUTING.md](../CONTRIBUTING.md).
 
