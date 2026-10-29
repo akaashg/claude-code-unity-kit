@@ -469,6 +469,8 @@ uv() { # name expected-exit [args]
   n=$1; e=$2; shift 2
   UNITY_KIT_UNITY_CLI="$FU" sh "$SCRIPTS/unity-verify.sh" "$@" > "$T/uv.out" 2>&1
   check "unity-verify: $n" "$e" "$?"
+  # macOS sh (bash 3.2) keeps "VAR=x uv ..." assignments after the call; drop them.
+  unset FAKE_VERIFY FAKE_VERIFY_ERR FAKE_DOCTOR FAKE_DOCTOR_ERR
 }
 uvhas() { grep -qF -- "$2" "$T/uv.out"; check "unity-verify: $1" 0 "$?"; }
 CONFLICT='CONFLICT_MARKERS\terror\tAssets/My Art/Rock.mat.meta\t2\tThis file still contains version control conflict markers.'
