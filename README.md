@@ -38,7 +38,7 @@ Then, in your Unity project, run `/unity-kit:init` once.
 | Skill | `/unity-kit:build-fix` | Build a player for one target, fix, rebuild until it builds (max 5 rounds). Run it yourself: builds take minutes |
 | Skill | `/unity-kit:test-fix` | Run EditMode and PlayMode tests, fix the code under test, re-run until they pass (max 5 rounds). Run it yourself: Unity can take minutes to start |
 | Skill | `compile-fix` | Compile, fix, recompile until clean (max 5 rounds) |
-| Skill | `precommit` | Zero errors, no new warnings, every asset has its `.meta`, no broken references, tests pass |
+| Skill | `precommit` | Zero errors, no new warnings, every asset has its `.meta`, no broken references, Unity's integrity checks, tests pass |
 | Hook | `guard-paths` | Blocks writes to `.meta` files, `Library/` and `Temp/` |
 | Hook | `stop-checks` | At end of turn: `.meta` pairing, broken asset references, and a compile check when scripts changed |
 | Agent | `unity-reviewer` | Static reset, `.meta`/GUID safety, Unity version APIs, project style. Picks up review requests for Unity C# |
@@ -92,6 +92,17 @@ Exit codes match the compile check: 0 built, 1 build errors, 3 not checked.
 
 Exit codes: 0 pass, 1 test failures or compile errors, 3 not checked, 4 no tests.
 
+## How Unity's integrity checks fit in
+
+Unity's CLI already audits the repository and the `.meta` files, so the kit runs it instead of rebuilding it. `unity-verify.sh`, which `precommit` runs, calls two read-only commands:
+
+- `unity projects verify`: missing or orphaned `.meta` files, duplicate GUIDs, leftover merge-conflict markers, an invalid `Packages/manifest.json`.
+- `unity vcs doctor`, in a git repo: ignore rules (including `.meta` files your `.gitignore` hides), Git LFS patterns, and git packages that follow a branch instead of a pinned version.
+
+Like the reference check, an error blocks only when its file is one the change touched; problems already in the repository are listed without blocking every commit. `--base <ref>` also counts files changed since a base ref, for CI. Without the Unity CLI the result is **not installed**, not a fail. The kit never runs `unity vcs doctor --fix`; it tells you which findings it would repair. These checks don't read the references inside scenes and prefabs; that's what `ref-check.sh` does.
+
+Exit codes: 0 no errors in touched files, 1 errors in touched files, 3 not checked, 4 the Unity CLI isn't installed.
+
 ## Works alongside
 
 unity-kit adds guardrails and workflow; it doesn't drive the Editor. It's designed to run next to:
@@ -101,7 +112,7 @@ unity-kit adds guardrails and workflow; it doesn't drive the Editor. It's design
 
 ## Roadmap
 
-unity-kit grows one production-pipeline stage at a time: compile, references, build and tests so far, then version control, import settings, CI setup and crash triage. Each stage gets a detect script, a gate (the Stop hook or `precommit`) and a fix-loop skill. Platform problems such as Unity version issues for Quest builds or OpenXR package conflicts are planned as rule files inside unity-kit, not as separate plugins. See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/PACKS.md](docs/PACKS.md).
+unity-kit grows one production-pipeline stage at a time: compile, references, build and tests so far, then team CI on every PR, a Quest device check and crash triage. Where Unity's CLI already covers a stage (Git LFS, scene merges), the kit calls it instead. Each stage gets a detect script, a gate (the Stop hook or `precommit`) and a fix-loop skill. Platform problems such as Unity version issues for Quest builds or OpenXR package conflicts are planned as rule files inside unity-kit, not as separate plugins. See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/PACKS.md](docs/PACKS.md).
 
 ## License
 
